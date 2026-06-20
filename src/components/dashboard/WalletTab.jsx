@@ -295,12 +295,12 @@ const WalletTab=({user,balance,setBalance,activeTxs=[]})=>{
                 {BANKS.map(b=><option key={b.id} value={b.id}>{b.label}</option>)}
               </select>
             </InputField>
-            <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"13px 14px",fontSize:13,color:"#065f46",lineHeight:1.75}}>
+            {/* <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"13px 14px",fontSize:13,color:"#065f46",lineHeight:1.75}}>
               <div style={{fontWeight:700,marginBottom:4,display:"flex",alignItems:"center",gap:6}}><span className="msym" style={{fontSize:16}}>info</span>How to fund</div>
               Transfer to <strong>Escrow Virtual Account — {BANKS.find(b=>b.id===fundBank)?.label||""}</strong><br/>
               Account No: <strong>7082914350</strong> &bull; Sort Code: <strong>058</strong><br/>
               Your name as narration. Funds reflect within 60 seconds.
-            </div>
+            </div> */}
             <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
               {[5000,10000,25000,50000].map(a=>(
                 <button key={a} onClick={()=>setFundAmt(String(a))} style={{flex:1,padding:"9px 0",border:`1.5px solid ${fundAmt===String(a)?T.green:T.gray100}`,borderRadius:8,background:fundAmt===String(a)?T.greenLt:T.white,cursor:"pointer",fontSize:13,fontWeight:700,color:fundAmt===String(a)?T.green:T.gray700,minWidth:70,transition:"all .15s"}}>₦{a.toLocaleString()}</button>
