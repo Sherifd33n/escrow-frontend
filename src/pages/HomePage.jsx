@@ -12,9 +12,9 @@ const Hero=({onSignup})=>{
   const [amt,setAmt]=useState("");
   const [cur,setCur]=useState("USD");
   return(
-    <section style={{background:`linear-gradient(150deg,${T.primaryDk} 0%,${T.primary} 55%,#1a6bb5 100%)`,color:T.white,padding:"72px 1.5rem 0",overflow:"hidden",position:"relative"}}>
+    <section className="hero-section" style={{background:`linear-gradient(150deg,${T.primaryDk} 0%,${T.primary} 55%,#1a6bb5 100%)`,color:T.white,padding:"72px 1.5rem 0",overflow:"hidden",position:"relative"}}>
       <div style={{position:"absolute",right:"-5%",top:"-10%",width:550,height:550,background:"radial-gradient(circle,rgba(240,130,15,.14) 0%,transparent 70%)",pointerEvents:"none"}}/>
-      <div className="hg" style={{maxWidth:1280,margin:"0 auto",display:"grid",gridTemplateColumns:"1fr 1fr",gap:52,alignItems:"center"}}>
+      <div className="hg" style={{maxWidth:1280,margin:"0 auto",display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,440px),1fr))",gap:40,alignItems:"center"}}>
         <div>
           <div style={{marginBottom:18}}><Badge color={T.secondary||T.green} sz="md">AI-Powered Tech Services Escrow</Badge></div>
           <h1 className="fu" style={{fontFamily:"'Inter',sans-serif",fontSize:"clamp(30px,4.5vw,54px)",fontWeight:700,lineHeight:1.15,marginBottom:20,letterSpacing:"-.5px"}}>Secure escrow for<br/>tech services — with<br/><span style={{color:T.gold}}>built-in AI auditing</span></h1>
@@ -28,12 +28,12 @@ const Hero=({onSignup})=>{
           </div>
         </div>
         <div className="fu2" style={{paddingBottom:48}}>
-          <div style={{background:"rgba(255,255,255,.07)",backdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,.14)",borderRadius:20,padding:"26px 22px",boxShadow:"0 28px 60px rgba(0,0,0,.28)"}}>
+          <div className="hero-card" style={{background:"rgba(255,255,255,.07)",backdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,.14)",borderRadius:20,padding:"26px 22px",boxShadow:"0 28px 60px rgba(0,0,0,.28)"}}>
             <div style={{fontWeight:700,fontSize:16,marginBottom:18}}>Start a Tech Escrow</div>
             <div style={{display:"flex",background:"rgba(0,0,0,.22)",borderRadius:9,padding:3,marginBottom:18}}>
               {[["client","Client"],["provider","Provider"]].map(([v,l])=><button key={v} onClick={()=>setRole(v)} style={{flex:1,padding:"8px 0",border:"none",borderRadius:7,cursor:"pointer",fontWeight:700,fontSize:12.5,transition:"all .15s",background:role===v?T.white:"transparent",color:role===v?T.primary:"rgba(255,255,255,.6)",boxShadow:role===v?"0 2px 8px rgba(0,0,0,.15)":"none"}}>{l}</button>)}
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:5,marginBottom:18}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(56px,1fr))",gap:5,marginBottom:18}}>
               {CATS.map(c=><button key={c.id} onClick={()=>setCat(c.id)} style={{border:`1.5px solid ${cat===c.id?c.color:"rgba(255,255,255,.12)"}`,borderRadius:8,padding:"8px 4px",cursor:"pointer",textAlign:"center",background:cat===c.id?"rgba(255,255,255,.13)":"rgba(255,255,255,.04)",transition:"all .15s"}}><span className="msym" style={{fontSize:16,color:"#fff"}}>{c.icon}</span><div style={{fontSize:9,fontWeight:600,color:"rgba(255,255,255,.85)",marginTop:2,lineHeight:1.2}}>{c.label}</div></button>)}
             </div>
             <div style={{display:"flex",marginBottom:14}}>
