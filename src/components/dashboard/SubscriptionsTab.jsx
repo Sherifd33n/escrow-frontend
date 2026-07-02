@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { SUBSCRIBED_PAYMENTS, PLANS } from "../../data/constants";
 
+// Site brand gradient (navy → green) used for all payment cards, regardless of plan tier
+const BRAND_GRAD = "linear-gradient(135deg,#001637,#006c47)";
+
 const STATUS_CFG = {
   in_progress: { label:"In Progress", dot:"#3b82f6", bg:"#eff6ff", color:"#1d4ed8" },
   completed:   { label:"Completed",   dot:"#006c47", bg:"#f0fdf4", color:"#006c47" },
@@ -19,7 +22,7 @@ function PaymentCard({ payment, onPay }) {
   const plan = PLANS.find(p => p.id === payment.plan);
   const sc = STATUS_CFG[payment.status];
   const pct = Math.round((payment.paid / payment.totalAmount) * 100);
-  const gradStr = plan ? `linear-gradient(135deg,${plan.gradient.join(",")})` : "#001637";
+  const gradStr = BRAND_GRAD;
 
   return (
     <div style={{background:"#fff",borderRadius:16,border:"1px solid #e9e7eb",overflow:"hidden",

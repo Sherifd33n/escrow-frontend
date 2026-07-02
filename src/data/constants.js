@@ -286,43 +286,5 @@ export const SUBSCRIBED_PAYMENTS = [
       {label:"Backend & API",           amount:750,  status:"due",     date:"Jun 1, 2025"},
       {label:"Testing & Deployment",    amount:500,  status:"upcoming",date:"Jun 25, 2025"},
     ]
-  },
-  {
-    id: "pay-002",
-    serviceId: "svc-003",
-    serviceTitle: "UI/UX Design System",
-    vendor: "Studio Vela",
-    plan: "silver",
-    totalAmount: 1200,
-    currency: "USD",
-    startDate: "May 10, 2025",
-    dueDate: "May 20, 2025",
-    status: "completed",
-    paid: 1200,
-    remaining: 0,
-    milestones: [
-      {label:"Research & Moodboard",  amount:300,  status:"paid", date:"May 11, 2025"},
-      {label:"Component Library",     amount:600,  status:"paid", date:"May 16, 2025"},
-      {label:"Final Handoff Package", amount:300,  status:"paid", date:"May 20, 2025"},
-    ]
-  },
-  {
-    id: "pay-003",
-    serviceId: "svc-006",
-    serviceTitle: "Cybersecurity Audit & Pen Test",
-    vendor: "SecureLayer",
-    plan: "gold",
-    totalAmount: 2800,
-    currency: "USD",
-    startDate: "Jun 1, 2025",
-    dueDate: "Jun 7, 2025",
-    status: "due",
-    paid: 0,
-    remaining: 2800,
-    milestones: [
-      {label:"Scope & Reconnaissance", amount:800,  status:"due",     date:"Jun 2, 2025"},
-      {label:"Penetration Testing",    amount:1200, status:"upcoming",date:"Jun 4, 2025"},
-      {label:"Report & Remediation",   amount:800,  status:"upcoming",date:"Jun 7, 2025"},
-    ]
   }
 ];

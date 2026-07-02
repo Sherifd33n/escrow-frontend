@@ -58,19 +58,19 @@ export default function VendorDashboard({ user, onLogout, navigate }) {
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 16px", height:64, borderBottom:"1px solid #c5c6cf", flexShrink:0 }}>
           <span style={{ fontWeight:800, fontSize:20, color:"#001637" }}>
             <span style={{ color:"#006c47" }}>Escrow</span>{" "}
-            <span style={{ fontSize:11, background:"#fff8e1", color:"#C9A84C", borderRadius:6, padding:"2px 8px", fontWeight:700 }}>Vendor</span>
+            <span style={{ fontSize:11, background:"#f0fdf4", color:"#006c47", borderRadius:6, padding:"2px 8px", fontWeight:700 }}>Vendor</span>
           </span>
           <button onClick={() => setDrawer(false)} style={{ background:"none", border:"none", cursor:"pointer" }}>
             <span className="msym" style={{ fontSize:24, color:"#44474e" }}>close</span>
           </button>
         </div>
         <div style={{ padding:"14px 16px", borderBottom:"1px solid #e9e7eb", display:"flex", alignItems:"center", gap:12, flexShrink:0 }}>
-          <div style={{ width:42, height:42, borderRadius:"50%", background:"linear-gradient(135deg,#C9A84C,#A07B2A)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700, fontSize:16, color:"#fff", flexShrink:0 }}>
+          <div style={{ width:42, height:42, borderRadius:"50%", background:"linear-gradient(135deg,#006c47,#005235)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700, fontSize:16, color:"#fff", flexShrink:0 }}>
             {user?.name ? user.name[0].toUpperCase() : "V"}
           </div>
           <div>
             <div style={{ fontWeight:700, fontSize:14, color:"#001637" }}>{user?.name || "Vendor"}</div>
-            <div style={{ fontSize:11, color:"#C9A84C", fontWeight:600 }}>Service Provider</div>
+            <div style={{ fontSize:11, color:"#006c47", fontWeight:600 }}>Service Provider</div>
           </div>
         </div>
         <nav style={{ flex:1, overflowY:"auto", padding:"10px 8px" }}>
@@ -96,10 +96,10 @@ export default function VendorDashboard({ user, onLogout, navigate }) {
           <span style={{ fontWeight:800, fontSize:20, color:"#001637", cursor:"pointer", flexShrink:0 }} onClick={() => navigate("home")}>
             <span style={{ color:"#006c47" }}>Escrow</span>
           </span>
-          <span style={{ fontSize:11, background:"#fff8e1", color:"#C9A84C", borderRadius:6, padding:"2px 8px", fontWeight:700, flexShrink:0 }}>Vendor</span>
+          <span style={{ fontSize:11, background:"#f0fdf4", color:"#006c47", borderRadius:6, padding:"2px 8px", fontWeight:700, flexShrink:0 }}>Vendor</span>
           <div className="dash-tabs" style={{ display:"flex", gap:0, marginLeft:6, overflow:"hidden" }}>
             {VENDOR_TABS.map(([k, _, l]) => (
-              <button key={k} onClick={() => switchTab(k)} style={{ background:"none", border:"none", cursor:"pointer", padding:"8px 12px", fontSize:13, fontWeight:600, color:tab===k?"#001637":"#44474e", borderBottom:tab===k?"2px solid #C9A84C":"2px solid transparent", transition:"all .15s", whiteSpace:"nowrap" }}>{l}</button>
+              <button key={k} onClick={() => switchTab(k)} style={{ background:"none", border:"none", cursor:"pointer", padding:"8px 12px", fontSize:13, fontWeight:600, color:tab===k?"#001637":"#44474e", borderBottom:tab===k?"2px solid #006c47":"2px solid transparent", transition:"all .15s", whiteSpace:"nowrap" }}>{l}</button>
             ))}
           </div>
         </div>
@@ -128,7 +128,7 @@ export default function VendorDashboard({ user, onLogout, navigate }) {
               {[
                 { icon:"work",     label:"Active Jobs",     value:activeJobs,                          color:"#001637", bg:"#e8f0fe" },
                 { icon:"payments", label:"Total Earned",    value:"$"+totalEarned.toLocaleString(),    color:"#006c47", bg:"#f0fdf4" },
-                { icon:"schedule", label:"Pending Payout",  value:"$"+pendingPayout.toLocaleString(),  color:"#C9A84C", bg:"#fff8e1" },
+                { icon:"schedule", label:"Pending Payout",  value:"$"+pendingPayout.toLocaleString(),  color:"#001637", bg:"#e8edf5" },
                 { icon:"account_balance_wallet", label:"Wallet", value:"$"+walletBalance.toLocaleString(), color:"#1a56a0", bg:"#e8f4fd" },
               ].map(s => (
                 <div key={s.label} style={{ background:"#fff", border:"1px solid #e9e7eb", borderRadius:14, padding:"18px 16px", display:"flex", alignItems:"center", gap:14, minWidth:0, overflow:"hidden" }}>
@@ -250,7 +250,7 @@ export default function VendorDashboard({ user, onLogout, navigate }) {
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))", gap:14, marginBottom:24 }}>
               {[
                 { label:"Total Earned",   value:"$"+totalEarned.toLocaleString(),                               color:"#006c47" },
-                { label:"Pending Payout", value:"$"+pendingPayout.toLocaleString(),                             color:"#C9A84C" },
+                { label:"Pending Payout", value:"$"+pendingPayout.toLocaleString(),                             color:"#001637" },
                 { label:"In Escrow",      value:"$"+jobs.filter(j=>j.status==="funded"||j.status==="inprogress").reduce((s,j)=>s+j.amount,0).toLocaleString(), color:"#1a56a0" },
               ].map(s => (
                 <div key={s.label} style={{ background:"#fff", border:"1px solid #e9e7eb", borderRadius:14, padding:"22px 20px", textAlign:"center" }}>
@@ -350,7 +350,7 @@ export default function VendorDashboard({ user, onLogout, navigate }) {
       {/* Mobile Bottom Nav */}
       <nav className="mbb" style={{ display:"none", position:"fixed", bottom:0, left:0, right:0, zIndex:50, background:"#fbf9fc", borderTop:"1px solid #c5c6cf", justifyContent:"space-around", alignItems:"center", height:66 }}>
         {VENDOR_TABS.slice(0,5).map(([k, icon, label]) => (
-          <button key={k} onClick={() => switchTab(k)} style={{ background:"none", border:"none", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:2, padding:"5px 6px", color:tab===k?"#001637":"#44474e", flex:1, borderTop:tab===k?"2px solid #C9A84C":"2px solid transparent" }}>
+          <button key={k} onClick={() => switchTab(k)} style={{ background:"none", border:"none", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:2, padding:"5px 6px", color:tab===k?"#001637":"#44474e", flex:1, borderTop:tab===k?"2px solid #006c47":"2px solid transparent" }}>
             <span className="msym" style={{ fontSize:22, color:tab===k?"#001637":"#75777f" }}>{icon}</span>
             <span style={{ fontSize:9.5, fontWeight:tab===k?700:500, whiteSpace:"nowrap" }}>{label}</span>
           </button>
