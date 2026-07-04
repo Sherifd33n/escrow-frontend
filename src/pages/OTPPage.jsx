@@ -66,13 +66,13 @@ const OTPPage=({email,onSuccess,navigate})=>{
           ):(
             <div style={{display:"flex",flexDirection:"column",gap:20}}>
               {err&&<div style={{background:"#ffdad6",borderRadius:9,padding:"10px 14px",fontSize:13.5,color:"#93000a",display:"flex",alignItems:"center",gap:8}}><span className="msym" style={{fontSize:18}}>error</span>{err}</div>}
-              <div style={{display:"flex",gap:10,justifyContent:"center"}} onPaste={paste}>
+              <div style={{display:"flex",gap:"clamp(6px,2vw,10px)",justifyContent:"center",width:"100%"}} onPaste={paste}>
                 {otp.map((v,i)=>(
                   <input key={i} ref={refs[i]} value={v}
                     onChange={e=>change(i,e.target.value)}
                     onKeyDown={e=>keydown(i,e)}
                     maxLength={1} inputMode="numeric"
-                    style={{width:48,height:56,textAlign:"center",fontSize:24,fontWeight:700,color:"#001637",border:`2px solid ${v?"#001637":"#c5c6cf"}`,borderRadius:12,outline:"none",background:v?"#f0f4ff":"#fff",transition:"all .15s",fontFamily:"inherit"}}/>
+                    style={{flex:"1 1 0",minWidth:0,maxWidth:48,height:"clamp(44px,12vw,56px)",textAlign:"center",fontSize:"clamp(17px,5vw,24px)",fontWeight:700,color:"#001637",border:`2px solid ${v?"#001637":"#c5c6cf"}`,borderRadius:12,outline:"none",background:v?"#f0f4ff":"#fff",transition:"all .15s",fontFamily:"inherit"}}/>
                 ))}
               </div>
               <button onClick={submit} disabled={ld||otp.join("").length<6}

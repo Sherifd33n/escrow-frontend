@@ -58,7 +58,7 @@ export default function VendorDashboard({ user, onLogout, navigate }) {
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 16px", height:64, borderBottom:"1px solid #c5c6cf", flexShrink:0 }}>
           <span style={{ fontWeight:800, fontSize:20, color:"#001637" }}>
             <span style={{ color:"#006c47" }}>Escrow</span>{" "}
-            <span style={{ fontSize:11, background:"#f0fdf4", color:"#006c47", borderRadius:6, padding:"2px 8px", fontWeight:700 }}>Vendor</span>
+            <span style={{ fontSize:11, background:"#f0fdf4", color:"#006c47", borderRadius:6, padding:"2px 8px", fontWeight:700 }}>Provider</span>
           </span>
           <button onClick={() => setDrawer(false)} style={{ background:"none", border:"none", cursor:"pointer" }}>
             <span className="msym" style={{ fontSize:24, color:"#44474e" }}>close</span>
@@ -66,10 +66,10 @@ export default function VendorDashboard({ user, onLogout, navigate }) {
         </div>
         <div style={{ padding:"14px 16px", borderBottom:"1px solid #e9e7eb", display:"flex", alignItems:"center", gap:12, flexShrink:0 }}>
           <div style={{ width:42, height:42, borderRadius:"50%", background:"linear-gradient(135deg,#006c47,#005235)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700, fontSize:16, color:"#fff", flexShrink:0 }}>
-            {user?.name ? user.name[0].toUpperCase() : "V"}
+            {user?.name ? user.name[0].toUpperCase() : "S"}
           </div>
           <div>
-            <div style={{ fontWeight:700, fontSize:14, color:"#001637" }}>{user?.name || "Vendor"}</div>
+            <div style={{ fontWeight:700, fontSize:14, color:"#001637" }}>{user?.name || "Service Provider"}</div>
             <div style={{ fontSize:11, color:"#006c47", fontWeight:600 }}>Service Provider</div>
           </div>
         </div>
@@ -88,15 +88,19 @@ export default function VendorDashboard({ user, onLogout, navigate }) {
       </aside>
 
       {/* Top Bar */}
+      <style>{`
+        @media(max-width:520px){ .vp-role-badge{display:none!important;} }
+        @media(max-width:400px){ .vp-balance-label{display:none!important;} }
+      `}</style>
       <header style={{ background:"#fbf9fc", borderBottom:"1px solid #c5c6cf", position:"sticky", top:0, zIndex:50, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 14px", height:64, gap:8 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8, flex:1, minWidth:0 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8, flex:1, minWidth:0, overflow:"hidden" }}>
           <button className="mob-menu-btn" onClick={() => setDrawer(v => !v)} style={{ display:"flex", alignItems:"center", justifyContent:"center", width:38, height:38, borderRadius:10, background:"none", border:"none", cursor:"pointer", flexShrink:0 }}>
             <span className="msym" style={{ fontSize:24, color:"#001637" }}>menu</span>
           </button>
           <span style={{ fontWeight:800, fontSize:20, color:"#001637", cursor:"pointer", flexShrink:0 }} onClick={() => navigate("home")}>
             <span style={{ color:"#006c47" }}>Escrow</span>
           </span>
-          <span style={{ fontSize:11, background:"#f0fdf4", color:"#006c47", borderRadius:6, padding:"2px 8px", fontWeight:700, flexShrink:0 }}>Vendor</span>
+          <span className="vp-role-badge" style={{ fontSize:11, background:"#f0fdf4", color:"#006c47", borderRadius:6, padding:"2px 8px", fontWeight:700, flexShrink:0, whiteSpace:"nowrap" }}>Provider</span>
           <div className="dash-tabs" style={{ display:"flex", gap:0, marginLeft:6, overflow:"hidden" }}>
             {VENDOR_TABS.map(([k, _, l]) => (
               <button key={k} onClick={() => switchTab(k)} style={{ background:"none", border:"none", cursor:"pointer", padding:"8px 12px", fontSize:13, fontWeight:600, color:tab===k?"#001637":"#44474e", borderBottom:tab===k?"2px solid #006c47":"2px solid transparent", transition:"all .15s", whiteSpace:"nowrap" }}>{l}</button>
@@ -104,10 +108,10 @@ export default function VendorDashboard({ user, onLogout, navigate }) {
           </div>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
-          <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:9, padding:"6px 12px", fontSize:13, fontWeight:700, color:"#006c47" }}>
-            Balance: ${walletBalance.toLocaleString()}
+          <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:9, padding:"6px 10px", fontSize:13, fontWeight:700, color:"#006c47", whiteSpace:"nowrap" }}>
+            <span className="vp-balance-label">Balance: </span>${walletBalance.toLocaleString()}
             </div>
-          <button onClick={onLogout} style={{ display:"inline-flex", alignItems:"center", gap:6, background:"transparent", color:"#dc2626", border:"1px solid #fecaca", borderRadius:9, cursor:"pointer", fontWeight:600, fontSize:13, padding:"8px 12px", whiteSpace:"nowrap" }}>
+          <button onClick={onLogout} style={{ display:"inline-flex", alignItems:"center", gap:6, background:"transparent", color:"#dc2626", border:"1px solid #fecaca", borderRadius:9, cursor:"pointer", fontWeight:600, fontSize:13, padding:"8px 12px", whiteSpace:"nowrap", flexShrink:0 }}>
             <span className="msym" style={{ fontSize:16 }}>logout</span>
           </button>
         </div>
@@ -119,7 +123,7 @@ export default function VendorDashboard({ user, onLogout, navigate }) {
         {tab === "overview" && (
           <div>
             <div style={{ marginBottom:20 }}>
-              <h1 style={{ fontSize:"clamp(20px,3vw,26px)", fontWeight:800, color:"#001637", marginBottom:4 }}>Vendor Dashboard</h1>
+              <h1 style={{ fontSize:"clamp(20px,3vw,26px)", fontWeight:800, color:"#001637", marginBottom:4 }}>Service Provider Dashboard</h1>
               <p style={{ color:"#75777f", fontSize:14 }}>Manage your jobs, track earnings, and submit deliverables.</p>
             </div>
 
@@ -260,30 +264,48 @@ export default function VendorDashboard({ user, onLogout, navigate }) {
               ))}
             </div>
 
-            <div style={{ background:"#fff", border:"1px solid #e9e7eb", borderRadius:14, padding:"20px" }}>
+            <div style={{ background:"#fff", border:"1px solid #e9e7eb", borderRadius:14, padding:"20px", overflow:"hidden" }}>
               <h2 style={{ fontSize:16, fontWeight:700, color:"#001637", marginBottom:16 }}>Job Earnings History</h2>
-              <table style={{ width:"100%", borderCollapse:"collapse", minWidth:350 }}>
-                <thead>
-                  <tr style={{ background:"#f9f9fb" }}>
-                    {["Project","Amount","Status","Date"].map(h => (
-                      <th key={h} style={{ padding:"10px 12px", textAlign:"left", fontSize:10.5, fontWeight:700, color:"#75777f", textTransform:"uppercase", letterSpacing:".06em", borderBottom:"1px solid #e9e7eb" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {jobs.map((job, i) => (
-                    <tr key={job.id} style={{ borderBottom:i<jobs.length-1?"1px solid #f0f0f0":"none" }}>
-                      <td style={{ padding:"12px" }}>
-                        <div style={{ fontWeight:600, fontSize:13, color:"#001637" }}>{job.title}</div>
-                        <div style={{ fontSize:11, color:"#75777f" }}>{job.id}</div>
-                      </td>
-                      <td style={{ padding:"12px", fontWeight:700, fontSize:13, color:"#001637" }}>${job.amount.toLocaleString()}</td>
-                      <td style={{ padding:"12px" }}><SB status={job.status} /></td>
-                      <td style={{ padding:"12px", fontSize:12, color:"#75777f" }}>{job.date}</td>
+              {/* Desktop table */}
+              <div className="tx-tbl" style={{ overflowX:"auto" }}>
+                <table style={{ width:"100%", borderCollapse:"collapse", minWidth:350 }}>
+                  <thead>
+                    <tr style={{ background:"#f9f9fb" }}>
+                      {["Project","Amount","Status","Date"].map(h => (
+                        <th key={h} style={{ padding:"10px 12px", textAlign:"left", fontSize:10.5, fontWeight:700, color:"#75777f", textTransform:"uppercase", letterSpacing:".06em", borderBottom:"1px solid #e9e7eb" }}>{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {jobs.map((job, i) => (
+                      <tr key={job.id} style={{ borderBottom:i<jobs.length-1?"1px solid #f0f0f0":"none" }}>
+                        <td style={{ padding:"12px" }}>
+                          <div style={{ fontWeight:600, fontSize:13, color:"#001637" }}>{job.title}</div>
+                          <div style={{ fontSize:11, color:"#75777f" }}>{job.id}</div>
+                        </td>
+                        <td style={{ padding:"12px", fontWeight:700, fontSize:13, color:"#001637" }}>${job.amount.toLocaleString()}</td>
+                        <td style={{ padding:"12px" }}><SB status={job.status} /></td>
+                        <td style={{ padding:"12px", fontSize:12, color:"#75777f" }}>{job.date}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {/* Mobile cards */}
+              <div className="tx-mob" style={{ display:"none", flexDirection:"column" }}>
+                {jobs.map((job, i) => (
+                  <div key={job.id} style={{ padding:"12px 2px", borderBottom:i<jobs.length-1?"1px solid #f0f0f0":"none" }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", gap:10, marginBottom:4 }}>
+                      <div style={{ fontWeight:600, fontSize:13, color:"#001637", minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{job.title}</div>
+                      <div style={{ fontWeight:700, fontSize:13, color:"#001637", flexShrink:0 }}>${job.amount.toLocaleString()}</div>
+                    </div>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:10 }}>
+                      <div style={{ fontSize:11, color:"#75777f" }}>{job.id} &bull; {job.date}</div>
+                      <SB status={job.status} />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -313,7 +335,7 @@ export default function VendorDashboard({ user, onLogout, navigate }) {
         {/* ── KYC ── */}
         {tab === "kyc" && (
           <div style={{ background:"#fff", border:"1px solid #e9e7eb", borderRadius:14, padding:"clamp(16px,4vw,28px)" }}>
-            <h2 style={{ fontSize:"clamp(18px,3vw,22px)", fontWeight:700, color:"#001637", marginBottom:6 }}>Vendor Verification</h2>
+            <h2 style={{ fontSize:"clamp(18px,3vw,22px)", fontWeight:700, color:"#001637", marginBottom:6 }}>Service Provider Verification</h2>
             <p style={{ color:"#75777f", fontSize:13.5, marginBottom:20 }}>Verified vendors get priority placement and higher payout limits.</p>
             {[
               { label:"Email Verified",  icon:"mail",  done:true },

@@ -137,7 +137,7 @@ const PhoneVerifyModal = ({ onClose, onVerified }) => {
               </p>
 
               <div>
-                <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                <div style={{ display: "flex", gap: "clamp(5px,1.5vw,8px)", justifyContent: "center", width: "100%" }}>
                   {otp.map((v, i) => (
                     <input
                       key={i}
@@ -150,7 +150,7 @@ const PhoneVerifyModal = ({ onClose, onVerified }) => {
                       onKeyDown={e => handleKey(i, e)}
                       onPaste={i === 0 ? handlePaste : undefined}
                       style={{
-                        width: 44, height: 52, textAlign: "center", fontSize: 20, fontWeight: 700,
+                        flex: "1 1 0", minWidth: 0, maxWidth: 44, height: "clamp(42px,11vw,52px)", textAlign: "center", fontSize: "clamp(16px,4.5vw,20px)", fontWeight: 700,
                         fontFamily: "'Inter',sans-serif", color: T.primary,
                         background: v ? "rgba(0,22,55,.05)" : T.offWhite,
                         border: `2px solid ${v ? T.primary : err ? T.red : T.gray100}`,
