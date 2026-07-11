@@ -3,7 +3,7 @@ import { T } from "../tokens";
 import { Btn } from "./ui";
 import { NAV_ITEMS } from "../data/constants";
 
-export default function Navbar({ onLogin, onSignup, navigate }) {
+export default function Navbar({ onLogin, onSignup, navigate, user, onLogout }) {
   const [open, setOpen] = useState(null);
   const [sc, setSc] = useState(false);
   const [mob, setMob] = useState(false);
@@ -20,7 +20,7 @@ export default function Navbar({ onLogin, onSignup, navigate }) {
     <>
       <nav style={{ background: T.white, position: "sticky", top: 0, zIndex: 300, boxShadow: sc ? "0 2px 20px rgba(0,0,0,.1)" : "0 1px 0 #e2e8f0", transition: "box-shadow .2s" }}>
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem", display: "flex", alignItems: "center", height: 64 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", flexShrink: 0 }} onClick={() => { navigate("home"); setMob(false); }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", flexShrink: 0 }} onClick={() => { navigate(user ? "dashboard" : "home"); setMob(false); }}>
             <div style={{ width: 38, height: 38, background: `linear-gradient(135deg,${T.primary},${T.primaryDk})`, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <span style={{ color: T.white, fontWeight: 800, fontSize: 18, fontFamily: "'Inter',sans-serif" }}>E</span>
             </div>
@@ -54,8 +54,17 @@ export default function Navbar({ onLogin, onSignup, navigate }) {
             ))}
           </div>
           <div className="ndsk" style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: 12, flexShrink: 0 }}>
-            <Btn variant="ghost" onClick={onLogin} style={{ fontSize: 14 }}>Login</Btn>
-            <Btn variant="accent" onClick={onSignup} style={{ fontSize: 14, padding: "9px 20px" }}>Create Account →</Btn>
+            {user ? (
+              <>
+                <Btn variant="ghost" onClick={() => navigate("dashboard")} style={{ fontSize: 14 }}>Dashboard</Btn>
+                <Btn variant="accent" onClick={onLogout} style={{ fontSize: 14, padding: "9px 20px" }}>Sign Out</Btn>
+              </>
+            ) : (
+              <>
+                <Btn variant="ghost" onClick={onLogin} style={{ fontSize: 14 }}>Login</Btn>
+                <Btn variant="accent" onClick={onSignup} style={{ fontSize: 14, padding: "9px 20px" }}>Create Account →</Btn>
+              </>
+            )}
           </div>
           <button className="mbb" onClick={() => { setMob(o => !o); setMe(null); }} style={{ display: "none", marginLeft: "auto", background: "none", border: "none", cursor: "pointer", flexDirection: "column", gap: 5, padding: 8 }} aria-label="Menu">
             {mob ? <span className="msym" style={{ fontSize: 24, color: T.gray700 }}>close</span> : [0, 1, 2].map(i => <span key={i} style={{ display: "block", width: 24, height: 2, background: T.gray700, borderRadius: 2 }} />)}
@@ -85,8 +94,17 @@ export default function Navbar({ onLogin, onSignup, navigate }) {
             </div>
           ))}
           <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "14px 1.5rem 22px" }}>
-            <Btn variant="outline" onClick={() => { onLogin(); setMob(false); }} style={{ width: "100%" }}>Login</Btn>
-            <Btn variant="accent" onClick={() => { onSignup(); setMob(false); }} style={{ width: "100%" }}>Sign Up Free →</Btn>
+            {user ? (
+              <>
+                <Btn variant="outline" onClick={() => { navigate("dashboard"); setMob(false); }} style={{ width: "100%" }}>Dashboard</Btn>
+                <Btn variant="accent" onClick={() => { onLogout(); setMob(false); }} style={{ width: "100%" }}>Sign Out</Btn>
+              </>
+            ) : (
+              <>
+                <Btn variant="outline" onClick={() => { onLogin(); setMob(false); }} style={{ width: "100%" }}>Login</Btn>
+                <Btn variant="accent" onClick={() => { onSignup(); setMob(false); }} style={{ width: "100%" }}>Sign Up Free →</Btn>
+              </>
+            )}
           </div>
         </div>
       )}

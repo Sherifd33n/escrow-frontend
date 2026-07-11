@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { CSS } from "./tokens";
+import { auth, clearToken } from "./utils/api";
 
 import SplashScreen       from "./components/SplashScreen";
 import HomePage           from "./pages/HomePage";
@@ -33,6 +34,22 @@ export default function App() {
   const [pendingUser, setPendingUser] = useState(null);
 
   useEffect(() => {
+    const restoreSession = async () => {
+      const token = sessionStorage.getItem("vp_token");
+      if (token && !user) {
+        const { data, error } = await auth.me();
+        if (data && !error) {
+          setUser(data);
+        } else {
+          clearToken();
+          setUser(null);
+        }
+      }
+    };
+    restoreSession();
+  }, []);
+
+  useEffect(() => {
     try { sessionStorage.setItem("vp_page", page); } catch (e) {}
   }, [page]);
 
@@ -47,8 +64,8 @@ export default function App() {
 
   const onLoginSuccess  = (u) => { setUser(u); navigate("dashboard"); };
   const onSignupSuccess = (u) => { setPendingUser(u); navigate("otp"); };
-  const onOTPSuccess    = ()  => { setUser(pendingUser); setPendingUser(null); navigate("dashboard"); };
-  const onLogout        = ()  => { setUser(null); navigate("home"); };
+  const onOTPSuccess    = (u)  => { setUser(u || pendingUser); setPendingUser(null); navigate("dashboard"); };
+  const onLogout        = ()  => { clearToken(); setUser(null); navigate("home"); };
 
   const Dashboard = user?.role === "provider" ? VendorDashboard : ClientDashboard;
 
@@ -56,10 +73,10 @@ export default function App() {
     <>
       <style>{CSS}</style>
       {page === "splash"       && <SplashScreen onDone={() => navigate("home")} />}
-      {page === "home"         && <HomePage navigate={navigate} />}
-      {page === "login"        && <LoginPage onSuccess={onLoginSuccess} navigate={navigate} />}
+      {page === "home"         && <HomePage navigate={navigate} user={user} onLogout={onLogout} />}
+      {page === "login"        && <LoginPage onSuccess={onLoginSuccess} setPendingUser={setPendingUser} navigate={navigate} />}
       {page === "signup"       && <SignupPage onSuccess={onSignupSuccess} navigate={navigate} />}
-      {page === "otp"          && <OTPPage email={pendingUser?.email} onSuccess={onOTPSuccess} navigate={navigate} />}
+      {page === "otp"          && <OTPPage pendingUser={pendingUser} onSuccess={onOTPSuccess} navigate={navigate} />}
       {page === "forgot"       && <ForgotPasswordPage navigate={navigate} />}
       {page === "services"     && <ServicesPage navigate={navigate} user={user} />}
       {page === "subscription" && <SubscriptionPage navigate={navigate} user={user} />}
@@ -68,3 +85,4 @@ export default function App() {
     </>
   );
 }
+

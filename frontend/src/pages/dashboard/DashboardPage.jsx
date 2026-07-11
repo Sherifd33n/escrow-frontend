@@ -102,7 +102,7 @@ const Dashboard=({user,onLogout,navigate})=>{
           <button className="mob-menu-btn" onClick={()=>setDrawer(v=>!v)} style={{display:"flex",alignItems:"center",justifyContent:"center",width:38,height:38,borderRadius:10,background:"none",border:"none",cursor:"pointer",color:"#001637",flexShrink:0}}>
             <span className="msym" style={{fontSize:24}}>{drawer?"close":"menu"}</span>
           </button>
-          <span style={{fontWeight:800,fontSize:20,color:"#001637",letterSpacing:"-.3px",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}} onClick={()=>navigate("home")}>
+          <span style={{fontWeight:800,fontSize:20,color:"#001637",letterSpacing:"-.3px",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}} onClick={()=>switchTab("transactions")}>
             <span style={{color:"#006c47"}}>Escrow</span>
           </span>
           <div className="dash-tabs" style={{display:"flex",gap:0,marginLeft:6,overflow:"hidden"}}>

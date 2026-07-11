@@ -97,7 +97,7 @@ export default function VendorDashboard({ user, onLogout, navigate }) {
           <button className="mob-menu-btn" onClick={() => setDrawer(v => !v)} style={{ display:"flex", alignItems:"center", justifyContent:"center", width:38, height:38, borderRadius:10, background:"none", border:"none", cursor:"pointer", flexShrink:0 }}>
             <span className="msym" style={{ fontSize:24, color:"#001637" }}>menu</span>
           </button>
-          <span style={{ fontWeight:800, fontSize:20, color:"#001637", cursor:"pointer", flexShrink:0 }} onClick={() => navigate("home")}>
+          <span style={{ fontWeight:800, fontSize:20, color:"#001637", cursor:"pointer", flexShrink:0 }} onClick={() => switchTab("overview")}>
             <span style={{ color:"#006c47" }}>Escrow</span>
           </span>
           <span className="vp-role-badge" style={{ fontSize:11, background:"#f0fdf4", color:"#006c47", borderRadius:6, padding:"2px 8px", fontWeight:700, flexShrink:0, whiteSpace:"nowrap" }}>Provider</span>

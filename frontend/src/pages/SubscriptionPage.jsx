@@ -151,7 +151,7 @@ export default function SubscriptionPage({ navigate, user }) {
 
       {/* Nav */}
       <header style={{ background:"#001637", padding:"0 20px", height:60, display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:50 }}>
-        <span style={{ fontWeight:800, fontSize:20, color:"#fff", cursor:"pointer" }} onClick={() => navigate("home")}>
+        <span style={{ fontWeight:800, fontSize:20, color:"#fff", cursor:"pointer" }} onClick={() => navigate(user ? "dashboard" : "home")}>
           <span style={{ color:"#0ea5e9" }}>Escrow</span>
         </span>
         <div style={{ display:"flex", gap:12 }}>

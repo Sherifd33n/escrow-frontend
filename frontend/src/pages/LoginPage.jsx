@@ -2,23 +2,43 @@ import { useState } from "react";
 import { T } from "../tokens";
 import { Spin } from "../components/ui";
 import AuthShell from "./AuthShell";
+import { auth, saveToken } from "../utils/api";
 
-const LoginPage=({onSuccess,navigate})=>{
-  const [fm,setFm]=useState({email:"",password:""});
-  const [showPw,setShowPw]=useState(false);
-  const [err,setErr]=useState("");
-  const [ld,setLd]=useState(false);
-  const [done,setDone]=useState(false);
-  const h=k=>e=>setFm(p=>({...p,[k]:e.target.value}));
-  const sub=e=>{
-    e.preventDefault();setErr("");
-    if(!fm.email||!fm.password)return setErr("Please fill in all fields.");
+const LoginPage = ({ onSuccess, setPendingUser, navigate }) => {
+  const [fm, setFm] = useState({ email: "", password: "" });
+  const [showPw, setShowPw] = useState(false);
+  const [err, setErr] = useState("");
+  const [ld, setLd] = useState(false);
+  const [done, setDone] = useState(false);
+  
+  const h = k => e => setFm(p => ({ ...p, [k]: e.target.value }));
+  
+  const sub = async (e) => {
+    e.preventDefault();
+    setErr("");
+    if (!fm.email || !fm.password) return setErr("Please fill in all fields.");
+    
     setLd(true);
-    setTimeout(()=>{
-      setLd(false);setDone(true);
-      setTimeout(()=>onSuccess({name:"User",role:"client",email:fm.email}),900);
-    },1000);
+    const { data, error, unverified, user } = await auth.login(fm.email, fm.password);
+    
+    if (error) {
+      setLd(false);
+      if (unverified && user) {
+        setPendingUser(user);
+        navigate("otp");
+      } else {
+        setErr(error);
+      }
+      return;
+    }
+    
+    saveToken(data.token);
+    setLd(false);
+    setDone(true);
+    setTimeout(() => onSuccess(data.user), 900);
   };
+
+
   return(
     <AuthShell navigate={navigate}>
       <div style={{width:"100%",maxWidth:440}}>

@@ -1,48 +1,71 @@
 import { useState, useEffect, useRef } from "react";
 import { Spin } from "../components/ui";
 import AuthShell from "./AuthShell";
+import { auth, saveToken } from "../utils/api";
 
-const OTPPage=({email,onSuccess,navigate})=>{
-  const [otp,setOtp]=useState(["","","","","",""]);
-  const [err,setErr]=useState("");
-  const [ld,setLd]=useState(false);
-  const [done,setDone]=useState(false);
-  const [countdown,setCountdown]=useState(59);
-  const [canResend,setCanResend]=useState(false);
-  const refs=[useRef(),useRef(),useRef(),useRef(),useRef(),useRef()];
+const OTPPage = ({ pendingUser, onSuccess, navigate }) => {
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [err, setErr] = useState("");
+  const [ld, setLd] = useState(false);
+  const [done, setDone] = useState(false);
+  const [countdown, setCountdown] = useState(59);
+  const [canResend, setCanResend] = useState(false);
+  const refs = [useRef(), useRef(), useRef(), useRef(), useRef(), useRef()];
 
-  useEffect(()=>{
+  useEffect(() => {
     refs[0].current?.focus();
-    const t=setInterval(()=>setCountdown(c=>{if(c<=1){setCanResend(true);clearInterval(t);return 0;}return c-1;}),1000);
-    return()=>clearInterval(t);
-  },[]);
+    const t = setInterval(() => setCountdown(c => { if (c <= 1) { setCanResend(true); clearInterval(t); return 0; } return c - 1; }), 1000);
+    return () => clearInterval(t);
+  }, []);
 
-  const change=(i,v)=>{
-    if(!/^\d*$/.test(v))return;
-    const n=[...otp];n[i]=v.slice(-1);setOtp(n);setErr("");
-    if(v&&i<5)refs[i+1].current?.focus();
+  const change = (i, v) => {
+    if (!/^\d*$/.test(v)) return;
+    const n = [...otp]; n[i] = v.slice(-1); setOtp(n); setErr("");
+    if (v && i < 5) refs[i + 1].current?.focus();
   };
-  const keydown=(i,e)=>{
-    if(e.key==="Backspace"&&!otp[i]&&i>0)refs[i-1].current?.focus();
+  const keydown = (i, e) => {
+    if (e.key === "Backspace" && !otp[i] && i > 0) refs[i - 1].current?.focus();
   };
-  const paste=(e)=>{
-    const d=e.clipboardData.getData("text").replace(/\D/g,"").slice(0,6);
-    if(d.length===6){setOtp(d.split(""));refs[5].current?.focus();}
-  };
-
-  const submit=()=>{
-    const code=otp.join("");
-    if(code.length<6)return setErr("Please enter all 6 digits.");
-    setLd(true);setErr("");
-    // No network call — just show success and move on
-    setTimeout(()=>{setLd(false);setDone(true);setTimeout(()=>onSuccess(),1000);},1200);
+  const paste = (e) => {
+    const d = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (d.length === 6) { setOtp(d.split("")); refs[5].current?.focus(); }
   };
 
-  const resend=()=>{
-    if(!canResend)return;
-    setOtp(["","","","","",""]);setCountdown(59);setCanResend(false);
+  const submit = async () => {
+    const code = otp.join("");
+    if (code.length < 6) return setErr("Please enter all 6 digits.");
+    setLd(true);
+    setErr("");
+    
+    const { data, error } = await auth.verifyOTP(pendingUser?.id, code);
+    setLd(false);
+    
+    if (error) {
+      return setErr(error);
+    }
+    
+    saveToken(data.token);
+    setDone(true);
+    setTimeout(() => onSuccess(data.user), 1000);
+  };
+
+  const resend = async () => {
+    if (!canResend) return;
+    setLd(true);
+    setErr("");
+    const { error } = await auth.resendOTP(pendingUser?.id);
+    setLd(false);
+    
+    if (error) {
+      return setErr(error);
+    }
+    
+    setOtp(["", "", "", "", "", ""]);
+    setCountdown(59);
+    setCanResend(false);
     refs[0].current?.focus();
   };
+
 
   return(
     <AuthShell navigate={navigate}>
@@ -52,7 +75,7 @@ const OTPPage=({email,onSuccess,navigate})=>{
         </div>
         <h1 style={{fontSize:26,fontWeight:700,color:"#001637",marginBottom:8}}>Check your email</h1>
         <p style={{fontSize:14,color:"#44474e",lineHeight:1.7,marginBottom:28}}>
-          We sent a 6-digit code to<br/><strong style={{color:"#001637"}}>{email||"your email"}</strong>
+          We sent a 6-digit code to<br/><strong style={{color:"#001637"}}>{pendingUser?.email||"your email"}</strong>
         </p>
         <div className="auth-card">
           {done?(

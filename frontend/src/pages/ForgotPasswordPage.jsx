@@ -1,14 +1,19 @@
 import { useState } from "react";
 import { Spin } from "../components/ui";
 import AuthShell from "./AuthShell";
+import { auth } from "../utils/api";
 
 const ForgotPasswordPage=({navigate})=>{
   const [email,setEmail]=useState("");
   const [ld,setLd]=useState(false);const [sent,setSent]=useState(false);
-  const sub=e=>{
+  const [err,setErr]=useState("");
+  const sub=async e=>{
     e.preventDefault();if(!email)return;
-    setLd(true);
-    setTimeout(()=>{setLd(false);setSent(true);},1400);
+    setLd(true);setErr("");
+    const { error } = await auth.forgotPassword(email);
+    setLd(false);
+    if(error){ setErr(error); return; }
+    setSent(true);
   };
   return(
     <AuthShell navigate={navigate}>
@@ -32,6 +37,7 @@ const ForgotPasswordPage=({navigate})=>{
             </div>
           ):(
             <form onSubmit={sub} style={{display:"flex",flexDirection:"column",gap:18}}>
+              {err&&<div style={{background:"#ffdad6",borderRadius:9,padding:"10px 14px",fontSize:13.5,color:"#93000a",display:"flex",alignItems:"center",gap:8}}><span className="msym" style={{fontSize:18}}>error</span>{err}</div>}
               <div>
                 <label style={{display:"block",fontSize:12.5,fontWeight:700,color:"#44474e",marginBottom:6,letterSpacing:".02em"}}>EMAIL ADDRESS</label>
                 <div style={{position:"relative"}}>

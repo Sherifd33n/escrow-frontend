@@ -28,7 +28,12 @@ async function request(method, path, body, auth = true) {
     const json = await res.json().catch(() => ({}));
 
     if (!res.ok) {
-      return { data: null, error: json.error || `Request failed (${res.status})` };
+      return { 
+        data: null, 
+        error: json.error || `Request failed (${res.status})`,
+        unverified: json.unverified || false,
+        user: json.user || null
+      };
     }
     return { data: json, error: null };
   } catch (err) {

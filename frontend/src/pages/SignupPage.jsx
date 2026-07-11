@@ -2,27 +2,38 @@ import { useState } from "react";
 import { T } from "../tokens";
 import { Spin } from "../components/ui";
 import AuthShell from "./AuthShell";
+import { auth } from "../utils/api";
 
-const SignupPage=({onSuccess,navigate})=>{
-  const [fm,setFm]=useState({name:"",email:"",password:"",confirm:"",role:"client"});
-  const [showPw,setShowPw]=useState(false);
-  const [showCf,setShowCf]=useState(false);
-  const [err,setErr]=useState("");
-  const [ld,setLd]=useState(false);
-  const [done,setDone]=useState(false);
-  const h=k=>e=>setFm(p=>({...p,[k]:e.target.value}));
-  const sub=e=>{
-    e.preventDefault();setErr("");
-    if(!fm.name)return setErr("Full name is required.");
-    if(!fm.email||!fm.password)return setErr("Please fill in all fields.");
-    if(fm.password.length<8)return setErr("Password must be at least 8 characters.");
-    if(fm.password!==fm.confirm)return setErr("Passwords do not match.");
+const SignupPage = ({ onSuccess, navigate }) => {
+  const [fm, setFm] = useState({ name: "", email: "", password: "", confirm: "", role: "client" });
+  const [showPw, setShowPw] = useState(false);
+  const [showCf, setShowCf] = useState(false);
+  const [err, setErr] = useState("");
+  const [ld, setLd] = useState(false);
+  const [done, setDone] = useState(false);
+  
+  const h = k => e => setFm(p => ({ ...p, [k]: e.target.value }));
+  
+  const sub = async (e) => {
+    e.preventDefault();
+    setErr("");
+    if (!fm.name) return setErr("Full name is required.");
+    if (!fm.email || !fm.password) return setErr("Please fill in all fields.");
+    if (fm.password.length < 8) return setErr("Password must be at least 8 characters.");
+    if (fm.password !== fm.confirm) return setErr("Passwords do not match.");
+    
     setLd(true);
-    setTimeout(()=>{
-      setLd(false);setDone(true);
-      setTimeout(()=>onSuccess({name:fm.name,role:fm.role,email:fm.email}),900);
-    },1000);
+    const { data, error } = await auth.signup(fm.name, fm.email, fm.password, fm.role);
+    setLd(false);
+    
+    if (error) {
+      return setErr(error);
+    }
+    
+    setDone(true);
+    setTimeout(() => onSuccess(data.user), 900);
   };
+
   return(
     <AuthShell navigate={navigate}>
       <div style={{width:"100%",maxWidth:440}}>

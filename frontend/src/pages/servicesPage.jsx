@@ -352,7 +352,7 @@ export default function ServicesPage({ navigate, user }) {
         padding:"10px 20px"}}>
         <div style={{display:"flex",alignItems:"center",gap:16,flexWrap:"wrap",rowGap:8}}>
           <span style={{fontWeight:800,fontSize:20,color:"#fff",cursor:"pointer",letterSpacing:"-.3px"}}
-            onClick={() => navigate("home")}>
+            onClick={() => navigate(user ? "dashboard" : "home")}>
             <span style={{color:"#82f9be"}}>Escrow</span>
           </span>
           <div style={{display:"flex",gap:2,flexWrap:"wrap"}}>

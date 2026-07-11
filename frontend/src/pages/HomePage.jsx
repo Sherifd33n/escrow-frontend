@@ -324,10 +324,10 @@ const CTA=({onSignup})=>(
   </section>
 );
 
-export default function HomePage({ navigate }) {
+export default function HomePage({ navigate, user, onLogout }) {
   return (
     <div>
-      <Navbar onLogin={() => navigate("login")} onSignup={() => navigate("signup")} navigate={navigate} />
+      <Navbar onLogin={() => navigate("login")} onSignup={() => navigate("signup")} navigate={navigate} user={user} onLogout={onLogout} />
       <Hero onSignup={() => navigate("signup")} />
       <EscrowFlowAnimation />
       <Stats />
