@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { T, fs } from "../../tokens";
 import { Btn, Spin, FormField as F } from "../ui";
+import { users } from "../../utils/api";
 
 const KYC=({onClose,onComplete})=>{
   const [step,setStep]=useState(1);
@@ -162,7 +163,17 @@ const KYC=({onClose,onComplete})=>{
             <div style={{display:"flex",gap:10,justifyContent:"center"}}>
               <Btn variant="outline" onClick={onClose}>Close</Btn>
               {/* Demo helper — simulate admin approving/rejecting */}
-              <Btn variant="primary" onClick={()=>{onComplete&&onComplete();}}>Simulate Approval</Btn>
+              <Btn variant="primary" disabled={ld} onClick={async ()=>{
+                setLd(true);
+                const targetTier = fm.biz ? 3 : 2;
+                const { error } = await users.updateKYC(targetTier);
+                setLd(false);
+                if (error) {
+                  alert(error);
+                  return;
+                }
+                if(onComplete) onComplete(targetTier);
+              }}>{ld ? <Spin /> : "Simulate Approval"}</Btn>
             </div>
           </div>
         )}

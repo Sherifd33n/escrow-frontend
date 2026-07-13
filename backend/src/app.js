@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import authRoutes from './routes/auth.js';
+import usersRoutes from './routes/users.js';
 import errorHandler from './middleware/errorHandler.js';
 
 const app = express();
@@ -16,6 +17,7 @@ app.use(express.json());
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/users', usersRoutes);
 
 // Placeholder routes to prevent 404s on frontend during step-by-step dev
 app.use('/api/transactions', (req, res) => {
@@ -24,10 +26,6 @@ app.use('/api/transactions', (req, res) => {
 
 app.use('/api/wallet', (req, res) => {
   res.json({ balance: 0.00, history: [] });
-});
-
-app.use('/api/users', (req, res) => {
-  res.json({ profile: {} });
 });
 
 // Root check

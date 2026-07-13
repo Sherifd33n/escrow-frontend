@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { T, fs } from "../../tokens";
 import { Btn, StatusBadge as SB, FormField as F } from "../../components/ui";
 import { CATS, CURR, SCFG, MTX } from "../../data/constants";
@@ -8,6 +8,7 @@ import ContractModal from "../../components/dashboard/ContractModal";
 import SettingsTab from "../../components/dashboard/SettingsTab";
 import WalletTab from "../../components/dashboard/WalletTab";
 import KYC from "../../components/dashboard/KYCModal";
+import { users } from "../../utils/api";
 
 const VENDOR_TABS = [
   ["overview",     "home",                   "Overview"],
@@ -22,7 +23,7 @@ const VENDOR_TABS = [
 // Vendor-specific mock data (as provider/seller)
 const VENDOR_JOBS = MTX.map(tx => ({ ...tx, role:"Seller", other: tx.other }));
 
-export default function VendorDashboard({ user, onLogout, navigate }) {
+export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate }) {
   const [tab, setTab]         = useState("overview");
   const [drawer, setDrawer]   = useState(false);
   const [detail, setDetail]   = useState(null);
@@ -31,9 +32,15 @@ export default function VendorDashboard({ user, onLogout, navigate }) {
   const [showDispute, setShowDispute] = useState(null);
   const [showContract, setShowContract] = useState(null);
   const [showKYC, setShowKYC] = useState(false);
-  const [kycDone, setKycDone] = useState(false);
+  const [kycDone, setKycDone] = useState(!!user?.kyc_tier && user.kyc_tier > 1);
   const [walletBalance, setWalletBalance] = useState(8340.00);
   const [milestoneNote, setMilestoneNote] = useState("");
+
+  useEffect(() => {
+    if (user) {
+      setKycDone(user.kyc_tier > 1);
+    }
+  }, [user]);
 
   const switchTab = k => { setTab(k); setDetail(null); setDrawer(false); };
 
@@ -339,7 +346,7 @@ export default function VendorDashboard({ user, onLogout, navigate }) {
             <p style={{ color:"#75777f", fontSize:13.5, marginBottom:20 }}>Verified vendors get priority placement and higher payout limits.</p>
             {[
               { label:"Email Verified",  icon:"mail",  done:true },
-              { label:"Business Profile",icon:"business", done:false, action:() => setShowKYC(true) },
+              { label:"Business Profile",icon:"business", done:!!user?.kyc_tier && user.kyc_tier >= 3, action:() => setShowKYC(true) },
               { label:"Government ID",   icon:"badge", done:kycDone, action:() => setShowKYC(true) },
               { label:"Portfolio Link",  icon:"link",  done:false, action:() => {} },
             ].map(v => (
@@ -360,11 +367,20 @@ export default function VendorDashboard({ user, onLogout, navigate }) {
         )}
 
         {/* ── SETTINGS ── */}
-        {tab === "settings" && <SettingsTab user={user} />}
+        {tab === "settings" && <SettingsTab user={user} onUserUpdate={onUserUpdate} onLogout={onLogout} />}
       </main>
 
       {/* Modals */}
-      {showKYC && <KYC onClose={() => setShowKYC(false)} onComplete={() => { setKycDone(true); setShowKYC(false); }} />}
+      {showKYC && (
+        <KYC
+          onClose={() => setShowKYC(false)}
+          onComplete={(tier) => {
+            setKycDone(true);
+            setShowKYC(false);
+            if (onUserUpdate) onUserUpdate({ ...user, kyc_tier: tier });
+          }}
+        />
+      )}
       {showAudit && <AuditModal tx={showAudit} onClose={() => setShowAudit(null)} onApprove={() => setJobs(p => p.map(j => j.id===showAudit.id?{...j,status:"approved"}:j))} onRevision={() => setJobs(p => p.map(j => j.id===showAudit.id?{...j,status:"revision"}:j))} />}
       {showDispute && <DisputeModal tx={showDispute} onClose={() => setShowDispute(null)} onSubmit={() => setJobs(p => p.map(j => j.id===showDispute.id?{...j,status:"disputed"}:j))} />}
       {showContract && <ContractModal tx={showContract} scope={null} onClose={() => setShowContract(null)} />}

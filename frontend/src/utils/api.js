@@ -27,24 +27,57 @@ async function request(method, path, body, auth = true) {
 
     const json = await res.json().catch(() => ({}));
 
-    if (!res.ok) {
-      return { 
-        data: null, 
-        error: json.error || `Request failed (${res.status})`,
-        unverified: json.unverified || false,
-        user: json.user || null
+    // Session expired
+    if (res.status === 401 && auth) {
+      clearToken();
+
+      window.location.href = "/login";
+
+      return {
+        data: null,
+        error: "Your session has expired. Please log in again.",
       };
     }
-    return { data: json, error: null };
+
+    // Forbidden
+    if (res.status === 403 && auth) {
+      return {
+        data: null,
+        error: "You don't have permission to perform this action.",
+      };
+    }
+
+    // Other errors
+    if (!res.ok) {
+      return {
+        data: null,
+        error: json.error || `Request failed (${res.status})`,
+        unverified: json.unverified || false,
+        user: json.user || null,
+      };
+    }
+
+    // Success
+    return {
+      data: json,
+      error: null,
+    };
   } catch (err) {
-    return { data: null, error: "Network error — is the server running?" };
+    console.error("API Request Error:", err);
+
+    return {
+      data: null,
+      error:
+        err instanceof Error
+          ? err.message
+          : "Network error — is the server running?",
+    };
   }
 }
-
-const get    = (path, auth) => request("GET",    path, null,  auth);
-const post   = (path, body, auth) => request("POST",   path, body,  auth);
-const patch  = (path, body, auth) => request("PATCH",  path, body,  auth);
-const del    = (path, auth) => request("DELETE", path, null,  auth);
+const get = (path, auth) => request("GET", path, null, auth);
+const post = (path, body, auth) => request("POST", path, body, auth);
+const patch = (path, body, auth) => request("PATCH", path, body, auth);
+const del = (path, auth) => request("DELETE", path, null, auth);
 
 // ─── Token helpers ───────────────────────────────────────────────
 export function saveToken(token) {
@@ -61,23 +94,19 @@ export const auth = {
   signup: (name, email, password, role) =>
     post("/auth/signup", { name, email, password, role }, false),
 
-  login: (email, password) =>
-    post("/auth/login", { email, password }, false),
+  login: (email, password) => post("/auth/login", { email, password }, false),
 
   verifyOTP: (userId, code) =>
     post("/auth/verify-otp", { userId, code }, false),
 
-  resendOTP: (userId) =>
-    post("/auth/resend-otp", { userId }, false),
+  resendOTP: (userId) => post("/auth/resend-otp", { userId }, false),
 
-  forgotPassword: (email) =>
-    post("/auth/forgot-password", { email }, false),
+  forgotPassword: (email) => post("/auth/forgot-password", { email }, false),
 
   resetPassword: (email, code, newPassword) =>
     post("/auth/reset-password", { email, code, newPassword }, false),
 
-  me: () =>
-    get("/auth/me"),
+  me: () => get("/auth/me"),
 };
 
 // ─── TRANSACTIONS ────────────────────────────────────────────────
@@ -87,11 +116,9 @@ export const transactions = {
     return get(`/transactions${qs ? "?" + qs : ""}`);
   },
 
-  create: (data) =>
-    post("/transactions", data),
+  create: (data) => post("/transactions", data),
 
-  get: (id) =>
-    get(`/transactions/${id}`),
+  get: (id) => get(`/transactions/${id}`),
 
   updateStatus: (id, status, ai_audit_note) =>
     patch(`/transactions/${id}/status`, { status, ai_audit_note }),
@@ -105,30 +132,30 @@ export const transactions = {
 
 // ─── WALLET ──────────────────────────────────────────────────────
 export const wallet = {
-  get: () =>
-    get("/wallet"),
+  get: () => get("/wallet"),
 
-  deposit: (amount) =>
-    post("/wallet/deposit", { amount }),
+  deposit: (amount) => post("/wallet/deposit", { amount }),
 
   withdraw: (amount, bankId, accountNumber) =>
     post("/wallet/withdraw", { amount, bankId, accountNumber }),
 
-  history: (page = 1) =>
-    get(`/wallet/history?page=${page}`),
+  history: (page = 1) => get(`/wallet/history?page=${page}`),
 };
 
 // ─── USERS ───────────────────────────────────────────────────────
 export const users = {
-  getProfile: () =>
-    get("/users/profile"),
+  getProfile: () => get("/users/profile"),
 
-  updateProfile: (data) =>
-    patch("/users/profile", data),
+  updateProfile: (data) => patch("/users/profile", data),
 
-  updateKYC: (tier) =>
-    patch("/users/kyc", { tier }),
+  updateKYC: (tier) => patch("/users/kyc", { tier }),
 
   changePassword: (currentPassword, newPassword) =>
     patch("/users/change-password", { currentPassword, newPassword }),
+
+  deleteAccount: () => del("/users/profile"),
+
+  getSessions: () => get("/users/sessions"),
+
+  revokeSession: (id) => del(`/users/sessions/${id}`),
 };

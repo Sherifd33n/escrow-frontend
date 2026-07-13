@@ -46,6 +46,9 @@ export async function initDatabase() {
       try {
         await conn.query(schemaSql);
         console.log('Database schema successfully verified/initialized.');
+        
+        // Run migration to add columns if they are missing
+        await runMigrations(conn);
       } finally {
         conn.release();
       }
@@ -56,6 +59,50 @@ export async function initDatabase() {
   } catch (error) {
     console.error('Database initialization failed:', error);
     process.exit(1);
+  }
+}
+
+async function runMigrations(conn) {
+  // Check and rename old columns if they exist
+  try {
+    const [discoveryCols] = await conn.query("SHOW COLUMNS FROM users LIKE 'privacy_discovery'");
+    if (discoveryCols.length > 0) {
+      console.log("Migration: Renaming privacy_discovery to public_profile...");
+      await conn.query("ALTER TABLE users CHANGE COLUMN privacy_discovery public_profile TINYINT(1) NOT NULL DEFAULT 1");
+    }
+  } catch (err) {
+    console.error("Migration failed to rename privacy_discovery:", err);
+  }
+
+  try {
+    const [marketingCols] = await conn.query("SHOW COLUMNS FROM users LIKE 'privacy_marketing'");
+    if (marketingCols.length > 0) {
+      console.log("Migration: Renaming privacy_marketing to marketing_comms...");
+      await conn.query("ALTER TABLE users CHANGE COLUMN privacy_marketing marketing_comms TINYINT(1) NOT NULL DEFAULT 0");
+    }
+  } catch (err) {
+    console.error("Migration failed to rename privacy_marketing:", err);
+  }
+
+  const columnsToAdd = [
+    { name: 'two_factor_enabled', definition: 'TINYINT(1) NOT NULL DEFAULT 0' },
+    { name: 'notif_email', definition: 'TINYINT(1) NOT NULL DEFAULT 1' },
+    { name: 'notif_sms', definition: 'TINYINT(1) NOT NULL DEFAULT 0' },
+    { name: 'notif_push', definition: 'TINYINT(1) NOT NULL DEFAULT 1' },
+    { name: 'public_profile', definition: 'TINYINT(1) NOT NULL DEFAULT 1' },
+    { name: 'marketing_comms', definition: 'TINYINT(1) NOT NULL DEFAULT 0' }
+  ];
+
+  for (const col of columnsToAdd) {
+    try {
+      const [rows] = await conn.query(`SHOW COLUMNS FROM users LIKE ?`, [col.name]);
+      if (rows.length === 0) {
+        console.log(`Migration: Adding column ${col.name} to users table...`);
+        await conn.query(`ALTER TABLE users ADD COLUMN \`${col.name}\` ${col.definition}`);
+      }
+    } catch (err) {
+      console.error(`Migration failed for column ${col.name}:`, err);
+    }
   }
 }
 

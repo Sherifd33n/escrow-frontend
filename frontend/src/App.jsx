@@ -2,16 +2,16 @@ import { useState, useEffect } from "react";
 import { CSS } from "./tokens";
 import { auth, clearToken } from "./utils/api";
 
-import SplashScreen       from "./components/SplashScreen";
-import HomePage           from "./pages/HomePage";
-import LoginPage          from "./pages/LoginPage";
-import SignupPage         from "./pages/SignupPage";
-import OTPPage            from "./pages/OTPPage";
+import SplashScreen from "./components/SplashScreen";
+import HomePage from "./pages/HomePage";
+import LoginPage from "./pages/LoginPage";
+import SignupPage from "./pages/SignupPage";
+import OTPPage from "./pages/OTPPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
-import ClientDashboard    from "./pages/dashboard/ClientDashboard";
-import VendorDashboard    from "./pages/dashboard/VendorDashboard";
-import ServicesPage       from "./pages/servicesPage";
-import SubscriptionPage   from "./pages/SubscriptionPage";
+import ClientDashboard from "./pages/dashboard/ClientDashboard";
+import VendorDashboard from "./pages/dashboard/VendorDashboard";
+import ServicesPage from "./pages/servicesPage";
+import SubscriptionPage from "./pages/SubscriptionPage";
 
 const TRANSIENT = ["splash", "otp"];
 
@@ -20,7 +20,9 @@ export default function App() {
     try {
       const s = sessionStorage.getItem("vp_page");
       if (s && !TRANSIENT.includes(s)) return s;
-    } catch (e) {}
+    } catch (error) {
+      console.error("Failed to read vp_page:", error);
+    }
     return "splash";
   });
 
@@ -28,7 +30,10 @@ export default function App() {
     try {
       const s = sessionStorage.getItem("vp_user");
       return s ? JSON.parse(s) : null;
-    } catch (e) { return null; }
+    } catch (error) {
+      console.error("Failed to read vp_user:", error);
+      return null;
+    }
   });
 
   const [pendingUser, setPendingUser] = useState(null);
@@ -46,43 +51,92 @@ export default function App() {
         }
       }
     };
+
     restoreSession();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
-    try { sessionStorage.setItem("vp_page", page); } catch (e) {}
+    try {
+      sessionStorage.setItem("vp_page", page);
+    } catch (error) {
+      console.error("Session storage error:", error);
+    }
   }, [page]);
 
   useEffect(() => {
     try {
       if (user) sessionStorage.setItem("vp_user", JSON.stringify(user));
       else sessionStorage.removeItem("vp_user");
-    } catch (e) {}
+    } catch (error) {
+      console.error("Session storage error:", error);
+    }
   }, [user]);
 
-  const navigate = (p) => { setPage(p); window.scrollTo(0, 0); };
+  const navigate = (p) => {
+    setPage(p);
+    window.scrollTo(0, 0);
+  };
 
-  const onLoginSuccess  = (u) => { setUser(u); navigate("dashboard"); };
-  const onSignupSuccess = (u) => { setPendingUser(u); navigate("otp"); };
-  const onOTPSuccess    = (u)  => { setUser(u || pendingUser); setPendingUser(null); navigate("dashboard"); };
-  const onLogout        = ()  => { clearToken(); setUser(null); navigate("home"); };
+  const onLoginSuccess = (u) => {
+    setUser(u);
+    navigate("dashboard");
+  };
+  const onSignupSuccess = (u) => {
+    setPendingUser(u);
+    navigate("otp");
+  };
+  const onOTPSuccess = (u) => {
+    setUser(u || pendingUser);
+    setPendingUser(null);
+    navigate("dashboard");
+  };
+  const onLogout = () => {
+    clearToken();
+    setUser(null);
+    navigate("home");
+  };
 
-  const Dashboard = user?.role === "provider" ? VendorDashboard : ClientDashboard;
+  const Dashboard =
+    user?.role === "provider" ? VendorDashboard : ClientDashboard;
 
   return (
     <>
       <style>{CSS}</style>
-      {page === "splash"       && <SplashScreen onDone={() => navigate("home")} />}
-      {page === "home"         && <HomePage navigate={navigate} user={user} onLogout={onLogout} />}
-      {page === "login"        && <LoginPage onSuccess={onLoginSuccess} setPendingUser={setPendingUser} navigate={navigate} />}
-      {page === "signup"       && <SignupPage onSuccess={onSignupSuccess} navigate={navigate} />}
-      {page === "otp"          && <OTPPage pendingUser={pendingUser} onSuccess={onOTPSuccess} navigate={navigate} />}
-      {page === "forgot"       && <ForgotPasswordPage navigate={navigate} />}
-      {page === "services"     && <ServicesPage navigate={navigate} user={user} />}
-      {page === "subscription" && <SubscriptionPage navigate={navigate} user={user} />}
-      {page === "dashboard"    && user  && <Dashboard user={user} onLogout={onLogout} navigate={navigate} />}
-      {page === "dashboard"    && !user && <HomePage navigate={navigate} />}
+      {page === "splash" && <SplashScreen onDone={() => navigate("home")} />}
+      {page === "home" && (
+        <HomePage navigate={navigate} user={user} onLogout={onLogout} />
+      )}
+      {page === "login" && (
+        <LoginPage
+          onSuccess={onLoginSuccess}
+          setPendingUser={setPendingUser}
+          navigate={navigate}
+        />
+      )}
+      {page === "signup" && (
+        <SignupPage onSuccess={onSignupSuccess} navigate={navigate} />
+      )}
+      {page === "otp" && (
+        <OTPPage
+          pendingUser={pendingUser}
+          onSuccess={onOTPSuccess}
+          navigate={navigate}
+        />
+      )}
+      {page === "forgot" && <ForgotPasswordPage navigate={navigate} />}
+      {page === "services" && <ServicesPage navigate={navigate} user={user} />}
+      {page === "subscription" && (
+        <SubscriptionPage navigate={navigate} user={user} />
+      )}
+      {page === "dashboard" && user && (
+        <Dashboard
+          user={user}
+          onLogout={onLogout}
+          navigate={navigate}
+          onUserUpdate={setUser}
+        />
+      )}
+      {page === "dashboard" && !user && <HomePage navigate={navigate} />}
     </>
   );
 }
-

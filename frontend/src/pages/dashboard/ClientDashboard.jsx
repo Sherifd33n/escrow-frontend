@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { T, fs } from "../../tokens";
 import { Btn, Badge, Spin, StatusBadge as SB, FormField as F } from "../../components/ui";
 import { CATS, CURR, SCFG, MTX, PLANS, SUBSCRIBED_PAYMENTS } from "../../data/constants";
@@ -11,6 +11,7 @@ import DisputeModal from "../../components/dashboard/DisputeModal";
 import SettingsTab from "../../components/dashboard/SettingsTab";
 import WalletTab from "../../components/dashboard/WalletTab";
 import SubscriptionsTab from "../../components/dashboard/SubscriptionsTab";
+import { users } from "../../utils/api";
 
 const TABS = [
   ["overview",   "home",                   "Overview"],
@@ -23,7 +24,7 @@ const TABS = [
   ["settings",   "manage_accounts",        "Account"],
 ];
 
-export default function ClientDashboard({ user, onLogout, navigate }) {
+export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate }) {
   const [tab, setTab]           = useState("overview");
   const [drawer, setDrawer]     = useState(false);
   const [detail, setDetail]     = useState(null);
@@ -32,9 +33,9 @@ export default function ClientDashboard({ user, onLogout, navigate }) {
   const [ns, setNs]             = useState(1);
   const [nf, setNf]             = useState({ title:"", type:"software", amount:"", currency:"USD", counterparty:"", role:"buyer", days:"3", milestones:"2" });
   const [scope, setScope]       = useState(null);
-  const [kycDone, setKycDone]   = useState(false);
+  const [kycDone, setKycDone]   = useState(!!user?.kyc_tier && user.kyc_tier > 1);
   const [showKYC, setShowKYC]   = useState(false);
-  const [phoneDone, setPhoneDone]   = useState(false);
+  const [phoneDone, setPhoneDone]   = useState(!!user?.phone);
   const [showPhoneVerify, setShowPhoneVerify] = useState(false);
   const [showAudit, setShowAudit]   = useState(null);
   const [showDispute, setShowDispute] = useState(null);
@@ -42,6 +43,13 @@ export default function ClientDashboard({ user, onLogout, navigate }) {
   const [showScope, setShowScope]   = useState(false);
   const [walletBalance, setWalletBalance] = useState(12480.50);
   const [payments] = useState(SUBSCRIBED_PAYMENTS);
+
+  useEffect(() => {
+    if (user) {
+      setPhoneDone(!!user.phone);
+      setKycDone(user.kyc_tier > 1);
+    }
+  }, [user]);
 
   const hn = k => e => setNf(p => ({ ...p, [k]: e.target.value }));
   const switchTab = k => { setTab(k); setDetail(null); setDrawer(false); };
@@ -283,7 +291,7 @@ export default function ClientDashboard({ user, onLogout, navigate }) {
         )}
 
         {/* ── SETTINGS ── */}
-        {tab === "settings" && <SettingsTab user={user} />}
+        {tab === "settings" && <SettingsTab user={user} onUserUpdate={onUserUpdate} onLogout={onLogout} />}
       </main>
 
       {/* NEW TRANSACTION MODAL */}
@@ -357,8 +365,27 @@ export default function ClientDashboard({ user, onLogout, navigate }) {
       )}
 
       {/* Modals */}
-      {showKYC && <KYC onClose={() => setShowKYC(false)} onComplete={() => { setKycDone(true); setShowKYC(false); }} />}
-      {showPhoneVerify && <PhoneVerifyModal onClose={() => setShowPhoneVerify(false)} onVerified={(num) => { setPhoneDone(true); setShowPhoneVerify(false); }} />}
+      {showKYC && (
+        <KYC
+          onClose={() => setShowKYC(false)}
+          onComplete={(tier) => {
+            setKycDone(true);
+            setShowKYC(false);
+            if (onUserUpdate) onUserUpdate({ ...user, kyc_tier: tier });
+          }}
+        />
+      )}
+      {showPhoneVerify && (
+        <PhoneVerifyModal
+          onClose={() => setShowPhoneVerify(false)}
+          onVerified={async (num) => {
+            setPhoneDone(true);
+            setShowPhoneVerify(false);
+            const { data } = await users.updateProfile({ phone: num });
+            if (data?.user && onUserUpdate) onUserUpdate(data.user);
+          }}
+        />
+      )}
       {showAudit && <AuditModal tx={showAudit} onClose={() => setShowAudit(null)} onApprove={() => setTxs(p => p.map(t => t.id===showAudit.id?{...t,status:"approved"}:t))} onRevision={() => setTxs(p => p.map(t => t.id===showAudit.id?{...t,status:"revision"}:t))} />}
       {showDispute && <DisputeModal tx={showDispute} onClose={() => setShowDispute(null)} onSubmit={() => setTxs(p => p.map(t => t.id===showDispute.id?{...t,status:"disputed"}:t))} />}
       {showContract && <ContractModal tx={showContract} scope={scope} onClose={() => setShowContract(null)} />}
