@@ -1065,7 +1065,7 @@ const SettingsTab = ({ user, onUserUpdate, onLogout }) => {
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {[
                 { icon: "mail", label: "Email", done: !!user?.is_verified },
-                { icon: "smartphone", label: "Phone", done: !!user?.phone },
+                { icon: "smartphone", label: "Phone", done: !!user?.phone && !!user?.phone_verified },
                 {
                   icon: "badge",
                   label: "Identity (ID)",

@@ -8,9 +8,13 @@ CREATE TABLE IF NOT EXISTS `users` (
   `email` VARCHAR(255) NOT NULL UNIQUE,
   `password_hash` VARCHAR(255) NOT NULL,
   `role` ENUM('client', 'provider', 'admin') NOT NULL DEFAULT 'client',
-  `phone` VARCHAR(50) DEFAULT NULL,
-  `kyc_tier` INT NOT NULL DEFAULT 1,
-  `is_verified` TINYINT(1) NOT NULL DEFAULT 0,
+ `phone` VARCHAR(20) DEFAULT NULL,
+
+`phone_verified` TINYINT(1) NOT NULL DEFAULT 0,
+`phone_verified_at` TIMESTAMP NULL DEFAULT NULL,
+`kyc_tier` INT NOT NULL DEFAULT 1,
+`is_verified` TINYINT(1) NOT NULL DEFAULT 0,
+`email_verified_at` TIMESTAMP NULL DEFAULT NULL,
   `two_factor_enabled` TINYINT(1) NOT NULL DEFAULT 0,
   `notif_email` TINYINT(1) NOT NULL DEFAULT 1,
   `notif_sms` TINYINT(1) NOT NULL DEFAULT 0,
@@ -23,14 +27,25 @@ CREATE TABLE IF NOT EXISTS `users` (
 
 -- OTP codes table
 CREATE TABLE IF NOT EXISTS `otp_codes` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `user_id` INT NOT NULL,
-  `code` VARCHAR(6) NOT NULL,
-  `type` ENUM('signup', 'forgot') NOT NULL DEFAULT 'signup',
-  `expires_at` TIMESTAMP NULL DEFAULT NULL,
-  `used` TINYINT(1) NOT NULL DEFAULT 0,
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `user_id` INT NOT NULL,
+    `email` VARCHAR(255) DEFAULT NULL,
+    `phone` VARCHAR(20) DEFAULT NULL,
+   `code` VARCHAR(10) NOT NULL,
+    `type` ENUM(
+        'signup',
+        'forgot',
+        'phone_verification'
+    ) NOT NULL DEFAULT 'signup',
+    `expires_at` TIMESTAMP NULL DEFAULT NULL,
+    `used` TINYINT(1) NOT NULL DEFAULT 0,
+    `attempts` INT NOT NULL DEFAULT 0,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`user_id`)
+        REFERENCES `users` (`id`)
+        ON DELETE CASCADE
+
 ) ENGINE=InnoDB;
 
 -- Wallets table
@@ -129,3 +144,24 @@ CREATE TABLE IF NOT EXISTS `user_sessions` (
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- KYC submissions table
+CREATE TABLE IF NOT EXISTS `kyc_submissions` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL,
+  `phone` VARCHAR(50) NOT NULL,
+  `id_type` VARCHAR(50) NOT NULL,
+  `id_number` VARCHAR(100) NOT NULL,
+  `id_file` VARCHAR(255) NOT NULL,
+  `selfie_file` VARCHAR(255) DEFAULT NULL,
+  `biz_name` VARCHAR(255) DEFAULT NULL,
+  `biz_reg` VARCHAR(100) DEFAULT NULL,
+  `biz_file` VARCHAR(255) DEFAULT NULL,
+  `incorp_file` VARCHAR(255) DEFAULT NULL,
+  `status` ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+  `rejection_reason` TEXT DEFAULT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+

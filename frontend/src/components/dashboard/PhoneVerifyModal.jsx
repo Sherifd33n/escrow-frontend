@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { T, fs } from "../../tokens";
 import { Btn, Spin } from "../ui";
+import { users } from "../../utils/api";
 
 const COUNTRY_CODES = [
   { code: "+234", label: "🇳🇬 +234" },
@@ -33,16 +34,33 @@ const PhoneVerifyModal = ({ onClose, onVerified }) => {
     return () => clearTimeout(t);
   }, [countdown, step]);
 
-  const sendCode = () => {
+  const getFullPhone = () => {
+    let fullPhone = phone.trim();
+    if (!fullPhone.startsWith("+") && !fullPhone.startsWith("234")) {
+      const cleanLocal = fullPhone.startsWith("0") ? fullPhone.substring(1) : fullPhone;
+      fullPhone = countryCode + cleanLocal;
+    }
+    return fullPhone;
+  };
+
+  const sendCode = async () => {
     const digits = phone.replace(/\D/g, "");
     if (digits.length < 7) return setErr("Enter a valid phone number.");
-    setErr(""); setLd(true);
-    setTimeout(() => {
-      setLd(false);
-      setStep("otp");
-      setCountdown(59);
-      setCanResend(false);
-    }, 1200);
+    setErr("");
+    setLd(true);
+    
+    const fullPhone = getFullPhone();
+    const { error } = await users.sendPhoneOTP(fullPhone);
+    setLd(false);
+
+    if (error) {
+      setErr(error);
+      return;
+    }
+
+    setStep("otp");
+    setCountdown(59);
+    setCanResend(false);
   };
 
   const handleChange = (i, val) => {
@@ -66,27 +84,48 @@ const PhoneVerifyModal = ({ onClose, onVerified }) => {
     refs[Math.min(paste.length, 5)].current?.focus();
   };
 
-  const confirmCode = () => {
+  const confirmCode = async () => {
     const code = otp.join("");
     if (code.length < 6) return setErr("Please enter all 6 digits.");
-    setLd(true); setErr("");
-    setTimeout(() => {
-      setLd(false);
-      setStep("done");
-      setTimeout(() => onVerified(`${countryCode} ${phone}`), 1100);
-    }, 1300);
+    setLd(true);
+    setErr("");
+
+    const fullPhone = getFullPhone();
+    const { error } = await users.verifyPhoneOTP(fullPhone, code);
+    setLd(false);
+
+    if (error) {
+      setErr(error);
+      return;
+    }
+
+    setStep("done");
+    setTimeout(() => onVerified(fullPhone), 1100);
   };
 
-  const resend = () => {
+  const resend = async () => {
     if (!canResend) return;
     setOtp(["", "", "", "", "", ""]);
-    setCountdown(59); setCanResend(false);
+    setErr("");
+    setLd(true);
+    
+    const fullPhone = getFullPhone();
+    const { error } = await users.sendPhoneOTP(fullPhone);
+    setLd(false);
+
+    if (error) {
+      setErr(error);
+      return;
+    }
+
+    setCountdown(59);
+    setCanResend(false);
     refs[0].current?.focus();
   };
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.55)", zIndex: 600, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, backdropFilter: "blur(4px)" }} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: T.white, borderRadius: 20, width: "100%", maxWidth: 440, boxShadow: "0 32px 80px rgba(0,0,0,.22)", animation: "fadeUp .3s ease", overflow: "hidden" }}>
+      <div style={{ background: T.white, borderRadius: 20, width: "100%", maxWidth: 440, boxShadow: "0 32px 80px rgba(0,0,0,.22)", animation: "fadeUp .3s ease", overflow: "hidden", margin: "auto" }}>
 
         {/* Header */}
         <div style={{ background: `linear-gradient(135deg,${T.primary},${T.primaryDk})`, padding: "22px 26px", color: T.white, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -133,7 +172,7 @@ const PhoneVerifyModal = ({ onClose, onVerified }) => {
             <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
               <p style={{ fontSize: 13.5, color: T.gray500, lineHeight: 1.7, textAlign: "center" }}>
                 Enter the 6-digit code sent to<br/>
-                <span style={{ fontWeight: 700, color: T.primary }}>{countryCode} {phone}</span>
+                <span style={{ fontWeight: 700, color: T.primary }}>{getFullPhone()}</span>
               </p>
 
               <div>
@@ -184,7 +223,7 @@ const PhoneVerifyModal = ({ onClose, onVerified }) => {
                 <span className="msym" style={{ fontSize: 32, color: T.green }}>check_circle</span>
               </div>
               <div style={{ fontWeight: 700, fontSize: 18, color: T.primary, marginBottom: 5 }}>Phone Verified!</div>
-              <div style={{ fontSize: 13.5, color: T.gray500 }}>{countryCode} {phone} is now confirmed.</div>
+              <div style={{ fontSize: 13.5, color: T.gray500 }}>{getFullPhone()} is now confirmed.</div>
             </div>
           )}
 

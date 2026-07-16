@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { T, fs } from "../../tokens";
 import { Btn, Badge, Spin, StatusBadge as SB, FormField as F } from "../../components/ui";
-import { CATS, CURR, SCFG, MTX, PLANS, SUBSCRIBED_PAYMENTS } from "../../data/constants";
+import { CATS, CURR, SCFG, PLANS, SUBSCRIBED_PAYMENTS } from "../../data/constants";
 import KYC from "../../components/dashboard/KYCModal";
 import PhoneVerifyModal from "../../components/dashboard/PhoneVerifyModal";
 import ScopeModal from "../../components/dashboard/ScopeModal";
@@ -11,7 +11,7 @@ import DisputeModal from "../../components/dashboard/DisputeModal";
 import SettingsTab from "../../components/dashboard/SettingsTab";
 import WalletTab from "../../components/dashboard/WalletTab";
 import SubscriptionsTab from "../../components/dashboard/SubscriptionsTab";
-import { users } from "../../utils/api";
+import { users, transactions, wallet } from "../../utils/api";
 
 const TABS = [
   ["overview",   "home",                   "Overview"],
@@ -28,37 +28,116 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
   const [tab, setTab]           = useState("overview");
   const [drawer, setDrawer]     = useState(false);
   const [detail, setDetail]     = useState(null);
-  const [txs, setTxs]           = useState(MTX);
+  const [txs, setTxs]           = useState([]);
   const [showNew, setShowNew]   = useState(false);
   const [ns, setNs]             = useState(1);
   const [nf, setNf]             = useState({ title:"", type:"software", amount:"", currency:"USD", counterparty:"", role:"buyer", days:"3", milestones:"2" });
   const [scope, setScope]       = useState(null);
   const [kycDone, setKycDone]   = useState(!!user?.kyc_tier && user.kyc_tier > 1);
   const [showKYC, setShowKYC]   = useState(false);
-  const [phoneDone, setPhoneDone]   = useState(!!user?.phone);
+  const [phoneDone, setPhoneDone]   = useState(!!user?.phone && !!user?.phone_verified);
   const [showPhoneVerify, setShowPhoneVerify] = useState(false);
   const [showAudit, setShowAudit]   = useState(null);
   const [showDispute, setShowDispute] = useState(null);
   const [showContract, setShowContract] = useState(null);
   const [showScope, setShowScope]   = useState(false);
-  const [walletBalance, setWalletBalance] = useState(12480.50);
-  const [payments] = useState(SUBSCRIBED_PAYMENTS);
+  const [walletBalance, setWalletBalance] = useState(0);
+
+  const fetchDashboardData = async () => {
+    const [txsRes, walletRes] = await Promise.all([
+      transactions.list(),
+      wallet.get()
+    ]);
+    if (txsRes.data) {
+      setTxs(txsRes.data.map(t => ({
+        ...t,
+        id: t.txn_code || `TXN-${t.id}`,
+        realId: t.id,
+        type: CATS.find(c => c.id === t.category)?.label || "Software Dev",
+        other: user.id === t.buyer_id ? t.seller_name : t.buyer_name,
+        date: new Date(t.created_at).toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" }),
+        amount: parseFloat(t.amount) || 0
+      })));
+    }
+    if (walletRes.data) {
+      setWalletBalance(parseFloat(walletRes.data.balance) || 0);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
   useEffect(() => {
     if (user) {
-      setPhoneDone(!!user.phone);
+      setPhoneDone(!!user.phone && !!user.phone_verified);
       setKycDone(user.kyc_tier > 1);
     }
   }, [user]);
 
   const hn = k => e => setNf(p => ({ ...p, [k]: e.target.value }));
-  const switchTab = k => { setTab(k); setDetail(null); setDrawer(false); };
-
-  const createTx = () => {
-    const cat = CATS.find(c => c.id === nf.type);
-    setTxs(p => [{ id:`TXN-${Math.floor(80000+Math.random()*9000)}`, title:nf.title||scope?.title||"New Project", type:cat?.label||"Software Dev", cat:nf.type, amount:parseFloat(nf.amount)||0, currency:nf.currency, role:"Buyer", other:nf.counterparty||"Counterparty", status:"pending", date:new Date().toLocaleDateString("en",{month:"short",day:"numeric",year:"numeric"}), milestones:parseInt(nf.milestones)||1 }, ...p]);
-    setShowNew(false); setNs(1); setScope(null); setNf({ title:"", type:"software", amount:"", currency:"USD", counterparty:"", role:"buyer", days:"3", milestones:"2" });
+  const switchTab = k => { 
+    setTab(k); 
+    setDetail(null); 
+    setDrawer(false); 
+    fetchDashboardData();
   };
+
+  const createTx = async () => {
+    const { data, error } = await transactions.create({
+      title: nf.title || scope?.title || "New Project",
+      category: nf.type,
+      amount: parseFloat(nf.amount) || 0,
+      currency: nf.currency,
+      counterparty: nf.counterparty,
+      role: nf.role,
+      milestones_count: parseInt(nf.milestones) || 1,
+      review_days: parseInt(nf.days) || 3
+    });
+    if (error) {
+      alert(error);
+      return;
+    }
+    fetchDashboardData();
+    setShowNew(false); 
+    setNs(1); 
+    setScope(null); 
+    setNf({ title:"", type:"software", amount:"", currency:"USD", counterparty:"", role:"buyer", days:"3", milestones:"2" });
+  };
+
+  const payments = txs.map(t => {
+    const paid = (t.milestones || []).filter(m => m.status === 'paid').reduce((s, m) => s + parseFloat(m.amount), 0);
+    const totalAmount = parseFloat(t.amount) || 0;
+    const remaining = Math.max(0, totalAmount - paid);
+
+    let status = 'in_progress';
+    if (t.status === 'completed') {
+      status = 'completed';
+    } else if ((t.milestones || []).some(m => m.status === 'due')) {
+      status = 'due';
+    }
+
+    return {
+      id: t.id,
+      realId: t.realId,
+      serviceTitle: t.title,
+      vendor: t.other,
+      plan: 'gold',
+      totalAmount,
+      currency: t.currency || 'USD',
+      startDate: t.date,
+      dueDate: new Date(new Date(t.created_at).getTime() + (t.review_days || 3) * 24 * 60 * 60 * 1000).toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" }),
+      status,
+      paid,
+      remaining,
+      milestones: (t.milestones || []).map(m => ({
+        id: m.id,
+        label: m.title,
+        amount: parseFloat(m.amount) || 0,
+        status: m.status
+      }))
+    };
+  });
 
   const activeCount = txs.filter(t => !["completed","disputed"].includes(t.status)).length;
   const totalValue  = txs.reduce((s, t) => s + t.amount, 0);
@@ -239,10 +318,10 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
         )}
 
         {/* ── WALLET ── */}
-        {tab === "wallet" && <WalletTab balance={walletBalance} onBalanceChange={setWalletBalance} />}
+        {tab === "wallet" && <WalletTab user={user} balance={walletBalance} onBalanceChange={setWalletBalance} activeTxs={txs} />}
 
         {/* ── PAYMENTS (subscribed services) ── */}
-        {tab === "payments" && <SubscriptionsTab />}
+        {tab === "payments" && <SubscriptionsTab user={user} payments={payments} onPaymentSuccess={fetchDashboardData} />}
 
         {/* ── KYC ── */}
         {tab === "kyc" && (
@@ -367,6 +446,7 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
       {/* Modals */}
       {showKYC && (
         <KYC
+          user={user}
           onClose={() => setShowKYC(false)}
           onComplete={(tier) => {
             setKycDone(true);
@@ -381,13 +461,35 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
           onVerified={async (num) => {
             setPhoneDone(true);
             setShowPhoneVerify(false);
-            const { data } = await users.updateProfile({ phone: num });
-            if (data?.user && onUserUpdate) onUserUpdate(data.user);
+            const { data } = await users.getProfile();
+            if (data && onUserUpdate) onUserUpdate(data);
           }}
         />
       )}
-      {showAudit && <AuditModal tx={showAudit} onClose={() => setShowAudit(null)} onApprove={() => setTxs(p => p.map(t => t.id===showAudit.id?{...t,status:"approved"}:t))} onRevision={() => setTxs(p => p.map(t => t.id===showAudit.id?{...t,status:"revision"}:t))} />}
-      {showDispute && <DisputeModal tx={showDispute} onClose={() => setShowDispute(null)} onSubmit={() => setTxs(p => p.map(t => t.id===showDispute.id?{...t,status:"disputed"}:t))} />}
+      {showAudit && (
+        <AuditModal
+          tx={showAudit}
+          onClose={() => setShowAudit(null)}
+          onApprove={async () => {
+            await transactions.updateStatus(showAudit.realId, "approved");
+            fetchDashboardData();
+          }}
+          onRevision={async () => {
+            await transactions.updateStatus(showAudit.realId, "revision");
+            fetchDashboardData();
+          }}
+        />
+      )}
+      {showDispute && (
+        <DisputeModal
+          tx={showDispute}
+          onClose={() => setShowDispute(null)}
+          onSubmit={async () => {
+            await transactions.updateStatus(showDispute.realId, "disputed");
+            fetchDashboardData();
+          }}
+        />
+      )}
       {showContract && <ContractModal tx={showContract} scope={scope} onClose={() => setShowContract(null)} />}
       {showScope && <ScopeModal catLabel={CATS.find(c=>c.id===nf.type)?.label||"Software"} onClose={() => setShowScope(false)} onApply={s => { setScope(s); setNf(p => ({ ...p, title:s.title })); }} />}
 

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { SUBSCRIBED_PAYMENTS, PLANS } from "../../data/constants";
+import { PLANS } from "../../data/constants";
+import { transactions } from "../../utils/api";
 
 // Site brand gradient (navy → green) used for all payment cards, regardless of plan tier
 const BRAND_GRAD = "linear-gradient(135deg,#001637,#006c47)";
@@ -15,6 +16,7 @@ const MILESTONE_CFG = {
   paid:     { label:"Paid",    icon:"check_circle",  color:"#006c47", bg:"#f0fdf4" },
   due:      { label:"Due Now", icon:"schedule",      color:"#dc2626", bg:"#fef2f2" },
   upcoming: { label:"Upcoming",icon:"radio_button_unchecked", color:"#8b5cf6", bg:"#f5f3ff" },
+  pending:  { label:"Pending", icon:"radio_button_unchecked", color:"#75777f", bg:"#f5f3f6" },
 };
 
 function PaymentCard({ payment, onPay }) {
@@ -118,7 +120,7 @@ function PaymentCard({ payment, onPay }) {
         {open && (
           <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:8,animation:"fadeIn .2s ease"}}>
             {payment.milestones.map((m,i) => {
-              const mc = MILESTONE_CFG[m.status];
+              const mc = MILESTONE_CFG[m.status] || MILESTONE_CFG.upcoming;
               const isDue = m.status === "due";
               return (
                 <div key={i} style={{display:"flex",alignItems:"center",gap:12,
@@ -157,8 +159,7 @@ function PaymentCard({ payment, onPay }) {
   );
 }
 
-export default function SubscriptionsTab({ user, navigate }) {
-  const [payments, setPayments] = useState(SUBSCRIBED_PAYMENTS);
+export default function SubscriptionsTab({ user, navigate, payments = [], onPaymentSuccess }) {
   const [payModal, setPayModal] = useState(null);
   const [paySuccess, setPaySuccess] = useState(false);
 
@@ -170,28 +171,17 @@ export default function SubscriptionsTab({ user, navigate }) {
     setPayModal({ payment, milestone });
   };
 
-  const confirmPay = () => {
-    setPayments(prev => prev.map(p => {
-      if (p.id !== payModal.payment.id) return p;
-      const updatedMilestones = p.milestones.map((m,i) => {
-        if (m.label !== payModal.milestone.label) return m;
-        return {...m, status:"paid"};
-      });
-      const paidNow = p.paid + payModal.milestone.amount;
-      const remainingNow = p.remaining - payModal.milestone.amount;
-      // Auto-set next milestone to "due"
-      const nextIdx = updatedMilestones.findIndex(m => m.status === "upcoming");
-      if (nextIdx !== -1) updatedMilestones[nextIdx] = {...updatedMilestones[nextIdx], status:"due"};
-      return {
-        ...p,
-        paid: paidNow,
-        remaining: remainingNow,
-        milestones: updatedMilestones,
-        status: remainingNow === 0 ? "completed" : p.status,
-      };
-    }));
+  const confirmPay = async () => {
+    const { data, error } = await transactions.payMilestone(payModal.milestone.id);
+    if (error) {
+      alert(error);
+      return;
+    }
     setPayModal(null);
     setPaySuccess(true);
+    if (onPaymentSuccess) {
+      onPaymentSuccess();
+    }
     setTimeout(() => setPaySuccess(false), 3000);
   };
 

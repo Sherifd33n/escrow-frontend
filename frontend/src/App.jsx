@@ -8,6 +8,7 @@ import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import OTPPage from "./pages/OTPPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import ClientDashboard from "./pages/dashboard/ClientDashboard";
 import VendorDashboard from "./pages/dashboard/VendorDashboard";
 import ServicesPage from "./pages/servicesPage";
@@ -37,6 +38,7 @@ export default function App() {
   });
 
   const [pendingUser, setPendingUser] = useState(null);
+  const [resetToken, setResetToken]   = useState(null);
 
   useEffect(() => {
     const restoreSession = async () => {
@@ -53,6 +55,16 @@ export default function App() {
     };
 
     restoreSession();
+
+    // Detect password-reset link: ?reset_token=...&reset_email=...
+    const params = new URLSearchParams(window.location.search);
+    const rt = params.get("reset_token");
+    if (rt) {
+      setResetToken(rt);
+      // Clean the URL so the token isn't visible or reused
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setPage("reset");
+    }
   }, [user]);
 
   useEffect(() => {
@@ -124,6 +136,7 @@ export default function App() {
         />
       )}
       {page === "forgot" && <ForgotPasswordPage navigate={navigate} />}
+      {page === "reset"  && <ResetPasswordPage  token={resetToken} navigate={navigate} />}
       {page === "services" && <ServicesPage navigate={navigate} user={user} />}
       {page === "subscription" && (
         <SubscriptionPage navigate={navigate} user={user} />

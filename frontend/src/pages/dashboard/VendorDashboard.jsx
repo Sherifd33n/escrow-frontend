@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
 import { T, fs } from "../../tokens";
 import { Btn, StatusBadge as SB, FormField as F } from "../../components/ui";
-import { CATS, CURR, SCFG, MTX } from "../../data/constants";
+import { CATS, CURR, SCFG } from "../../data/constants";
 import AuditModal from "../../components/dashboard/AuditModal";
 import DisputeModal from "../../components/dashboard/DisputeModal";
 import ContractModal from "../../components/dashboard/ContractModal";
 import SettingsTab from "../../components/dashboard/SettingsTab";
 import WalletTab from "../../components/dashboard/WalletTab";
 import KYC from "../../components/dashboard/KYCModal";
-import { users } from "../../utils/api";
+import PhoneVerifyModal from "../../components/dashboard/PhoneVerifyModal";
+import { users, transactions, wallet } from "../../utils/api";
 
 const VENDOR_TABS = [
   ["overview",     "home",                   "Overview"],
@@ -20,38 +21,75 @@ const VENDOR_TABS = [
   ["settings",     "manage_accounts",        "Account"],
 ];
 
-// Vendor-specific mock data (as provider/seller)
-const VENDOR_JOBS = MTX.map(tx => ({ ...tx, role:"Seller", other: tx.other }));
-
 export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate }) {
   const [tab, setTab]         = useState("overview");
   const [drawer, setDrawer]   = useState(false);
   const [detail, setDetail]   = useState(null);
-  const [jobs, setJobs]       = useState(VENDOR_JOBS);
+  const [jobs, setJobs]       = useState([]);
   const [showAudit, setShowAudit]   = useState(null);
   const [showDispute, setShowDispute] = useState(null);
   const [showContract, setShowContract] = useState(null);
   const [showKYC, setShowKYC] = useState(false);
   const [kycDone, setKycDone] = useState(!!user?.kyc_tier && user.kyc_tier > 1);
-  const [walletBalance, setWalletBalance] = useState(8340.00);
+  const [phoneDone, setPhoneDone] = useState(!!user?.phone && !!user?.phone_verified);
+  const [showPhoneVerify, setShowPhoneVerify] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
   const [milestoneNote, setMilestoneNote] = useState("");
+
+  const fetchDashboardData = async () => {
+    const [txsRes, walletRes] = await Promise.all([
+      transactions.list(),
+      wallet.get()
+    ]);
+    if (txsRes.data) {
+      setJobs(txsRes.data.map(t => ({
+        ...t,
+        id: t.txn_code || `TXN-${t.id}`,
+        realId: t.id,
+        type: CATS.find(c => c.id === t.category)?.label || "Software Dev",
+        other: user.id === t.buyer_id ? t.seller_name : t.buyer_name,
+        date: new Date(t.created_at).toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" }),
+        amount: parseFloat(t.amount) || 0
+      })));
+    }
+    if (walletRes.data) {
+      setWalletBalance(parseFloat(walletRes.data.balance) || 0);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
   useEffect(() => {
     if (user) {
+      setPhoneDone(!!user.phone && !!user.phone_verified);
       setKycDone(user.kyc_tier > 1);
     }
   }, [user]);
 
-  const switchTab = k => { setTab(k); setDetail(null); setDrawer(false); };
+  const switchTab = k => { 
+    setTab(k); 
+    setDetail(null); 
+    setDrawer(false); 
+    fetchDashboardData();
+  };
 
   const totalEarned   = jobs.filter(j => j.status === "completed").reduce((s,j) => s+j.amount, 0);
   const pendingPayout = jobs.filter(j => j.status === "approved").reduce((s,j) => s+j.amount, 0);
   const activeJobs    = jobs.filter(j => !["completed","disputed","cancelled"].includes(j.status)).length;
 
-  const submitMilestone = (jobId) => {
-    setJobs(p => p.map(j => j.id === jobId ? { ...j, status:"inspection" } : j));
+  const submitMilestone = async (jobId) => {
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+    const { error } = await transactions.updateStatus(job.realId, "inspection", milestoneNote);
+    if (error) {
+      alert(error);
+      return;
+    }
     setMilestoneNote("");
     setDetail(null);
+    fetchDashboardData();
   };
 
   return (
@@ -227,7 +265,15 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
                         </div>
                       )}
                       {job.status === "funded" && (
-                        <Btn variant="teal" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setJobs(p => p.map(j => j.id===job.id?{...j,status:"inprogress"}:j)); }}>
+                        <Btn variant="teal" style={{ fontSize:13 }} onClick={async (e) => {
+                          e.stopPropagation();
+                          const { error } = await transactions.updateStatus(job.realId, "inprogress");
+                          if (error) {
+                            alert(error);
+                          } else {
+                            fetchDashboardData();
+                          }
+                        }}>
                           <span className="msym" style={{ fontSize:16 }}>play_circle</span> Start Work
                         </Btn>
                       )}
@@ -318,7 +364,7 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
         )}
 
         {/* ── WALLET ── */}
-        {tab === "wallet" && <WalletTab balance={walletBalance} onBalanceChange={setWalletBalance} />}
+        {tab === "wallet" && <WalletTab user={user} balance={walletBalance} onBalanceChange={setWalletBalance} activeTxs={jobs} />}
 
         {/* ── DISPUTES ── */}
         {tab === "disputes" && (
@@ -345,7 +391,8 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
             <h2 style={{ fontSize:"clamp(18px,3vw,22px)", fontWeight:700, color:"#001637", marginBottom:6 }}>Service Provider Verification</h2>
             <p style={{ color:"#75777f", fontSize:13.5, marginBottom:20 }}>Verified vendors get priority placement and higher payout limits.</p>
             {[
-              { label:"Email Verified",  icon:"mail",  done:true },
+              { label:"Email Verified",  icon:"mail",  done:true, action:null },
+              { label:"Phone Number",    icon:"phone", done:phoneDone, action:() => setShowPhoneVerify(true) },
               { label:"Business Profile",icon:"business", done:!!user?.kyc_tier && user.kyc_tier >= 3, action:() => setShowKYC(true) },
               { label:"Government ID",   icon:"badge", done:kycDone, action:() => setShowKYC(true) },
               { label:"Portfolio Link",  icon:"link",  done:false, action:() => {} },
@@ -373,6 +420,7 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
       {/* Modals */}
       {showKYC && (
         <KYC
+          user={user}
           onClose={() => setShowKYC(false)}
           onComplete={(tier) => {
             setKycDone(true);
@@ -381,8 +429,41 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
           }}
         />
       )}
-      {showAudit && <AuditModal tx={showAudit} onClose={() => setShowAudit(null)} onApprove={() => setJobs(p => p.map(j => j.id===showAudit.id?{...j,status:"approved"}:j))} onRevision={() => setJobs(p => p.map(j => j.id===showAudit.id?{...j,status:"revision"}:j))} />}
-      {showDispute && <DisputeModal tx={showDispute} onClose={() => setShowDispute(null)} onSubmit={() => setJobs(p => p.map(j => j.id===showDispute.id?{...j,status:"disputed"}:j))} />}
+      {showPhoneVerify && (
+        <PhoneVerifyModal
+          onClose={() => setShowPhoneVerify(false)}
+          onVerified={async (num) => {
+            setPhoneDone(true);
+            setShowPhoneVerify(false);
+            const { data } = await users.getProfile();
+            if (data && onUserUpdate) onUserUpdate(data);
+          }}
+        />
+      )}
+      {showAudit && (
+        <AuditModal
+          tx={showAudit}
+          onClose={() => setShowAudit(null)}
+          onApprove={async () => {
+            await transactions.updateStatus(showAudit.realId, "approved");
+            fetchDashboardData();
+          }}
+          onRevision={async () => {
+            await transactions.updateStatus(showAudit.realId, "revision");
+            fetchDashboardData();
+          }}
+        />
+      )}
+      {showDispute && (
+        <DisputeModal
+          tx={showDispute}
+          onClose={() => setShowDispute(null)}
+          onSubmit={async () => {
+            await transactions.updateStatus(showDispute.realId, "disputed");
+            fetchDashboardData();
+          }}
+        />
+      )}
       {showContract && <ContractModal tx={showContract} scope={null} onClose={() => setShowContract(null)} />}
 
       {/* Mobile Bottom Nav */}

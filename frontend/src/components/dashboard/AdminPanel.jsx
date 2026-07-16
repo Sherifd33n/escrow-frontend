@@ -1,10 +1,57 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { T } from "../../tokens";
-import { Btn } from "../../components/ui";
+import { Btn, Badge, SB } from "../../components/ui";
 import { MTX } from "../../data/constants";
+import { users } from "../../utils/api";
 
 const AdminPanel=({onBack})=>{
   const [tab,setTab]=useState("overview");
+  const [kycQueue, setKycQueue] = useState([]);
+  const [kycLoading, setKycLoading] = useState(false);
+
+  const loadKYCQueue = () => {
+    setKycLoading(true);
+    users.getKYCQueue().then(({ data, error }) => {
+      setKycLoading(false);
+      if (!error) {
+        setKycQueue(data || []);
+      }
+    });
+  };
+
+  useEffect(() => {
+    if (tab === "kyc") {
+      loadKYCQueue();
+    }
+  }, [tab]);
+
+  const handleApprove = (id) => {
+    if (!window.confirm("Are you sure you want to approve this KYC submission?")) return;
+    setKycLoading(true);
+    users.approveKYC(id).then(({ error }) => {
+      if (error) {
+        alert(error);
+        setKycLoading(false);
+      } else {
+        loadKYCQueue();
+      }
+    });
+  };
+
+  const handleReject = (id) => {
+    const reason = window.prompt("Enter rejection reason:", "Documents were unclear or expired.");
+    if (reason === null) return;
+    setKycLoading(true);
+    users.rejectKYC(id, reason).then(({ error }) => {
+      if (error) {
+        alert(error);
+        setKycLoading(false);
+      } else {
+        loadKYCQueue();
+      }
+    });
+  };
+
   const rows=[
     {id:"TXN-88401",parties:"Tunde A. vs Devcraft",    type:"Software Dev", amount:18000,status:"inspection",flagged:false},
     {id:"TXN-87801",parties:"Aisha M. vs CloudShift",  type:"Cloud/DevOps", amount:12500,status:"disputed",  flagged:true},
@@ -80,11 +127,26 @@ const AdminPanel=({onBack})=>{
         {tab==="kyc"&&(
           <div style={{background:T.white,border:`1px solid ${T.gray100}`,borderRadius:16,padding:"26px"}}>
             <h2 style={{fontFamily:"'Inter',sans-serif",fontSize:20,color:T.primary,marginBottom:6}}>KYC Verification Queue</h2>
-            <p style={{color:T.gray500,fontSize:14,marginBottom:20}}>5 pending premium manual verifications.</p>
-            {[{name:"Emeka O.",type:"Business Verification",time:"1 hour ago",tier:"Premium"},{name:"Funke A.",type:"Identity Verification",time:"3 hours ago",tier:"Standard"},{name:"Babatunde Ltd",type:"Business Verification",time:"5 hours ago",tier:"Premium"}].map((u,i)=>(
-              <div key={i} style={{border:`1px solid ${T.gray100}`,borderRadius:10,padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:10}}>
-                <div><div style={{fontWeight:700,fontSize:14,color:T.primary}}>{u.name}</div><div style={{fontSize:12.5,color:T.gray500}}>{u.type} · Submitted {u.time}</div></div>
-                <div style={{display:"flex",gap:8,alignItems:"center"}}><Badge color={u.tier==="Premium"?T.accent:T.primary}>{u.tier}</Badge><Btn variant="green" style={{fontSize:12,padding:"7px 14px"}}>Approve</Btn><Btn variant="red" style={{fontSize:12,padding:"7px 14px"}}>Reject</Btn></div>
+            <p style={{color:T.gray500,fontSize:14,marginBottom:20}}>{kycQueue.length} pending manual verifications.</p>
+            {kycLoading && <p style={{fontSize:13.5,color:T.gray500}}>Loading queue...</p>}
+            {!kycLoading && kycQueue.length === 0 && <p style={{fontSize:13.5,color:T.gray500}}>No pending verification requests.</p>}
+            {!kycLoading && kycQueue.map((u,i)=>(
+              <div key={u.id || i} style={{border:`1px solid ${T.gray100}`,borderRadius:10,padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:10}}>
+                <div>
+                  <div style={{fontWeight:700,fontSize:14,color:T.primary}}>{u.user_name} ({u.user_email})</div>
+                  <div style={{fontSize:12.5,color:T.gray500}}>{u.biz_name ? "Business Verification" : "Identity Verification"} · Phone: {u.phone} · Submitted {new Date(u.created_at).toLocaleString()}</div>
+                  <div style={{fontSize:11.5,color:T.gray400,marginTop:4,display:"flex",gap:10}}>
+                    <a href={`http://localhost:4000${u.id_file}`} target="_blank" rel="noreferrer" style={{color:T.accent,textDecoration:"underline"}}>View ID</a>
+                    {u.selfie_file && <a href={`http://localhost:4000${u.selfie_file}`} target="_blank" rel="noreferrer" style={{color:T.accent,textDecoration:"underline"}}>View Selfie</a>}
+                    {u.biz_file && <a href={`http://localhost:4000${u.biz_file}`} target="_blank" rel="noreferrer" style={{color:T.accent,textDecoration:"underline"}}>View Biz Doc</a>}
+                    {u.incorp_file && <a href={`http://localhost:4000${u.incorp_file}`} target="_blank" rel="noreferrer" style={{color:T.accent,textDecoration:"underline"}}>View Incorp Cert</a>}
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                  <Badge color={u.biz_name ? T.accent : T.primary}>{u.biz_name ? "Premium" : "Standard"}</Badge>
+                  <Btn variant="green" style={{fontSize:12,padding:"7px 14px"}} onClick={() => handleApprove(u.id)}>Approve</Btn>
+                  <Btn variant="red" style={{fontSize:12,padding:"7px 14px"}} onClick={() => handleReject(u.id)}>Reject</Btn>
+                </div>
               </div>
             ))}
           </div>

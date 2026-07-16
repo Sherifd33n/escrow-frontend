@@ -496,7 +496,7 @@ const Dashboard=({user,onLogout,navigate})=>{
       )}
 
       {/* Modals */}
-      {showKYC&&<KYC onClose={()=>setShowKYC(false)} onComplete={()=>{setKycDone(true);setShowKYC(false);}}/>}
+      {showKYC&&<KYC user={user} onClose={()=>setShowKYC(false)} onComplete={()=>{setKycDone(true);setShowKYC(false);}}/>}
       {showPhoneVerify&&<PhoneVerifyModal onClose={()=>setShowPhoneVerify(false)} onVerified={(num)=>{setPhoneDone(true);setPhoneNumber(num);setShowPhoneVerify(false);}}/>}
       {showAudit&&<AuditModal tx={showAudit} onClose={()=>setShowAudit(null)} onApprove={()=>setTxs(p=>p.map(t=>t.id===showAudit.id?{...t,status:"approved"}:t))} onRevision={()=>setTxs(p=>p.map(t=>t.id===showAudit.id?{...t,status:"revision"}:t))}/>}
       {showDispute&&<DisputeModal tx={showDispute} onClose={()=>setShowDispute(null)} onSubmit={()=>setTxs(p=>p.map(t=>t.id===showDispute.id?{...t,status:"disputed"}:t))}/>}

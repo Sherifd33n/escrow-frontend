@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { T, fs } from "../../tokens";
 import { Btn, Spin } from "../../components/ui";
 import { BANKS, SVCS } from "../../data/constants";
+import { wallet } from "../../utils/api";
 
 const FLW_PUBLIC_KEY = "FLWPUBK_TEST-PASTE-YOUR-KEY-HERE";
 
@@ -46,10 +47,11 @@ const chargeFLWCard = async ({ amount, currency="USD", email, name, cardNumber, 
   }
 };
 
-const WalletTab=({user,balance,setBalance,activeTxs=[]})=>{
+const WalletTab=({user,balance,onBalanceChange,activeTxs=[]})=>{
   const [section,setSection]=useState("overview"); // overview | fund | transfer | withdraw | pay
   const [ld,setLd]=useState(false);
   const [toast,setToast]=useState(null);
+  const [history,setHistory]=useState([]);
 
   /* Fund form */
   const [fundAmt,setFundAmt]=useState("");
@@ -98,34 +100,74 @@ const WalletTab=({user,balance,setBalance,activeTxs=[]})=>{
     setTimeout(()=>setToast(null),3200);
   };
 
-  const WALLET_TXS=[
-    {type:"credit",  desc:"Bank Deposit via GTBank",         amt:5000,  date:"Jun 12, 2025",  id:"WLT-1001"},
-    {type:"debit",   desc:"Transfer to Devcraft Solutions",  amt:2200,  date:"Jun 10, 2025",  id:"WLT-1002"},
-    {type:"credit",  desc:"Escrow Release — TXN-88103",      amt:4653,  date:"Jun 5, 2025",   id:"WLT-1003"},
-    {type:"debit",   desc:"AWS Cloud Services",              amt:340,   date:"May 30, 2025",  id:"WLT-1004"},
-    {type:"debit",   desc:"Withdrawal to First Bank",        amt:3000,  date:"May 26, 2025",  id:"WLT-1005"},
-    {type:"credit",  desc:"Wallet Top-up via OPay",          amt:8000,  date:"May 22, 2025",  id:"WLT-1006"},
-    {type:"debit",   desc:"Google Workspace Subscription",   amt:180,   date:"May 18, 2025",  id:"WLT-1007"},
-    {type:"debit",   desc:"Transfer to AppForge Ltd",        amt:500,   date:"May 14, 2025",  id:"WLT-1008"},
-  ];
+  // Fetch balance and transaction history on mount
+  const loadWalletData = async () => {
+    const [balRes, histRes] = await Promise.all([
+      wallet.get(),
+      wallet.history()
+    ]);
+    if (balRes.data && onBalanceChange) {
+      onBalanceChange(parseFloat(balRes.data.balance) || 0);
+    }
+    if (histRes.data?.history) {
+      setHistory(histRes.data.history);
+    }
+  };
 
-  const fakeAction=(successMsg,amt,credit=false)=>{
-    const n=parseFloat(amt);
-    if(!n||n<=0)return showToast("Please enter a valid amount.","error");
+  useEffect(() => {
+    loadWalletData();
+  }, []);
+
+  const handleDeposit = async () => {
+    const amt = parseFloat(fundAmt);
+    if (!amt || amt <= 0) return showToast("Please enter a valid amount.", "error");
     setLd(true);
-    setTimeout(()=>{
-      setLd(false);
-      if(credit){setBalance(p=>+(p+n).toFixed(2));}
-      else{
-        if(n>balance){setLd(false);showToast("Insufficient wallet balance.","error");return;}
-        setBalance(p=>+(p-n).toFixed(2));
-      }
-      showToast(successMsg);
-      setSection("overview");
-      setFundAmt("");setTxAmt("");setTxTo("");setTxNote("");
-      setWdAmt("");setWdAcct("");setSvcAmt("");setSvcRef("");
-      setCardNum("");setCardExp("");setCardCvv("");
-    },1600);
+    const { data, error } = await wallet.deposit(amt);
+    setLd(false);
+    if (error) {
+      showToast(error, "error");
+      return;
+    }
+    showToast(`₦${amt.toLocaleString()} added to your wallet.`);
+    loadWalletData();
+    setSection("overview");
+    setFundAmt("");
+  };
+
+  const handleWithdraw = async () => {
+    const amt = parseFloat(wdAmt);
+    if (!amt || amt <= 0) return showToast("Please enter a valid amount.", "error");
+    setLd(true);
+    const { data, error } = await wallet.withdraw(amt, wdBank, wdAcct);
+    setLd(false);
+    if (error) {
+      showToast(error, "error");
+      return;
+    }
+    showToast(`$${amt.toLocaleString()} withdrawal to ${BANKS.find(b=>b.id===wdBank)?.label} initiated.`);
+    loadWalletData();
+    setSection("overview");
+    setWdAmt("");
+    setWdAcct("");
+  };
+
+  const handleTransfer = async () => {
+    const amt = parseFloat(txAmt);
+    if (!amt || amt <= 0) return showToast("Please enter a valid amount.", "error");
+    if (!txTo) return showToast("Recipient email is required.", "error");
+    setLd(true);
+    const { data, error } = await wallet.transfer(amt, txTo, txNote);
+    setLd(false);
+    if (error) {
+      showToast(error, "error");
+      return;
+    }
+    showToast(`$${amt.toLocaleString()} sent to ${txTo}.`);
+    loadWalletData();
+    setSection("overview");
+    setTxAmt("");
+    setTxTo("");
+    setTxNote("");
   };
 
   return(
@@ -227,23 +269,30 @@ const WalletTab=({user,balance,setBalance,activeTxs=[]})=>{
       {section==="overview"&&(
         <div style={{display:"flex",flexDirection:"column",gap:14}}>
           {/* Quick stats */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}} className="g3-dash">
-            {[
-              {label:"Money In",    icon:"arrow_downward", val:"$17,653", color:"#10b981", bg:"#f0fdf4"},
-              {label:"Money Out",   icon:"arrow_upward",   val:"$6,220",  color:T.red,     bg:"#fef2f2"},
-              {label:"Tech Spend",  icon:"cloud",          val:"$520",    color:"#8b5cf6", bg:"#f5f3ff"},
-            ].map(s=>(
-              <div key={s.label} style={{background:T.white,border:`1px solid ${T.gray100}`,borderRadius:12,padding:"14px 16px",display:"flex",gap:12,alignItems:"center"}}>
-                <div style={{width:38,height:38,borderRadius:10,background:s.bg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                  <span className="msym" style={{fontSize:20,color:s.color}}>{s.icon}</span>
-                </div>
-                <div>
-                  <div style={{fontSize:10.5,fontWeight:700,color:T.gray400,textTransform:"uppercase",letterSpacing:".06em",marginBottom:3}}>{s.label}</div>
-                  <div style={{fontSize:17,fontWeight:800,color:T.primary}}>{s.val}</div>
-                </div>
+          {(()=>{
+            const moneyIn = history.filter(t => t.type === 'deposit' || t.type === 'escrow_release').reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+            const moneyOut = history.filter(t => t.type === 'withdrawal' || t.type === 'escrow_hold').reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+            const techSpend = history.filter(t => t.type === 'withdrawal' && (t.description.toLowerCase().includes('aws') || t.description.toLowerCase().includes('cloud') || t.description.toLowerCase().includes('workspace') || t.description.toLowerCase().includes('github') || t.description.toLowerCase().includes('vercel') || t.description.toLowerCase().includes('netlify'))).reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+            return (
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}} className="g3-dash">
+                {[
+                  {label:"Money In",    icon:"arrow_downward", val:"$"+moneyIn.toLocaleString("en",{minimumFractionDigits:2}), color:"#10b981", bg:"#f0fdf4"},
+                  {label:"Money Out",   icon:"arrow_upward",   val:"$"+moneyOut.toLocaleString("en",{minimumFractionDigits:2}),  color:T.red,     bg:"#fef2f2"},
+                  {label:"Tech Spend",  icon:"cloud",          val:"$"+techSpend.toLocaleString("en",{minimumFractionDigits:2}),    color:"#8b5cf6", bg:"#f5f3ff"},
+                ].map(s=>(
+                  <div key={s.label} style={{background:T.white,border:`1px solid ${T.gray100}`,borderRadius:12,padding:"14px 16px",display:"flex",gap:12,alignItems:"center"}}>
+                    <div style={{width:38,height:38,borderRadius:10,background:s.bg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                      <span className="msym" style={{fontSize:20,color:s.color}}>{s.icon}</span>
+                    </div>
+                    <div>
+                      <div style={{fontSize:10.5,fontWeight:700,color:T.gray400,textTransform:"uppercase",letterSpacing:".06em",marginBottom:3}}>{s.label}</div>
+                      <div style={{fontSize:17,fontWeight:800,color:T.primary}}>{s.val}</div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            );
+          })()}
 
           {/* Recent transactions */}
           <div style={{background:T.white,border:`1px solid ${T.gray100}`,borderRadius:14,overflow:"hidden"}}>
@@ -251,22 +300,31 @@ const WalletTab=({user,balance,setBalance,activeTxs=[]})=>{
               <div style={{fontWeight:700,fontSize:14,color:T.primary}}>Recent Wallet Activity</div>
               <span style={{fontSize:12,color:T.accent,fontWeight:600,cursor:"pointer"}}>View all</span>
             </div>
-            {WALLET_TXS.map((t,i)=>(
-              <div key={t.id} style={{padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:i<WALLET_TXS.length-1?`1px solid ${T.gray100}`:"none",gap:12}}>
-                <div style={{display:"flex",alignItems:"center",gap:12,flex:1,minWidth:0}}>
-                  <div style={{width:36,height:36,borderRadius:10,background:t.type==="credit"?"#f0fdf4":"#fef2f2",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                    <span className="msym" style={{fontSize:18,color:t.type==="credit"?"#10b981":T.red}}>{t.type==="credit"?"arrow_downward":"arrow_upward"}</span>
+            {history.length === 0 ? (
+              <div style={{ padding: "24px", textAlign: "center", color: T.gray400, fontSize: 13 }}>No recent transactions</div>
+            ) : (
+              history.map((t,i)=>{
+                const isCredit = t.type === 'deposit' || t.type === 'escrow_release';
+                const amtStr = parseFloat(t.amount || 0).toLocaleString("en", { minimumFractionDigits: 2 });
+                const dateStr = new Date(t.created_at).toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" });
+                return (
+                  <div key={t.id} style={{padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:i<history.length-1?`1px solid ${T.gray100}`:"none",gap:12}}>
+                    <div style={{display:"flex",alignItems:"center",gap:12,flex:1,minWidth:0}}>
+                      <div style={{width:36,height:36,borderRadius:10,background:isCredit?"#f0fdf4":"#fef2f2",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                        <span className="msym" style={{fontSize:18,color:isCredit?"#10b981":T.red}}>{isCredit?"arrow_downward":"arrow_upward"}</span>
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13.5,fontWeight:600,color:T.primary,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.description}</div>
+                        <div style={{fontSize:11,color:T.gray400,marginTop:2}}>{t.reference} &bull; {dateStr}</div>
+                      </div>
+                    </div>
+                    <div style={{fontSize:14,fontWeight:800,color:isCredit?"#10b981":T.red,flexShrink:0}}>
+                      {isCredit?"+":"-"}${amtStr}
+                    </div>
                   </div>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:13.5,fontWeight:600,color:T.primary,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.desc}</div>
-                    <div style={{fontSize:11,color:T.gray400,marginTop:2}}>{t.id} &bull; {t.date}</div>
-                  </div>
-                </div>
-                <div style={{fontSize:14,fontWeight:800,color:t.type==="credit"?"#10b981":T.red,flexShrink:0}}>
-                  {t.type==="credit"?"+":"-"}${t.amt.toLocaleString()}
-                </div>
-              </div>
-            ))}
+                );
+              })
+            )}
           </div>
         </div>
       )}
@@ -289,6 +347,11 @@ const WalletTab=({user,balance,setBalance,activeTxs=[]})=>{
                 <span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:15,fontWeight:700,color:T.gray600}}>₦</span>
                 <input style={{...fs,paddingLeft:32}} type="number" placeholder="0.00" value={fundAmt} onChange={e=>setFundAmt(e.target.value)}/>
               </div>
+              {fundAmt && parseFloat(fundAmt) > 0 && (
+                <div style={{fontSize:12,color:T.gray500,marginTop:4,paddingLeft:2}}>
+                  Equivalent: <strong>${(parseFloat(fundAmt) / 1381.215).toLocaleString("en", {maximumFractionDigits: 2})} USD</strong> (@ ₦1,381.22/$)
+                </div>
+              )}
             </InputField>
             <InputField label="Select Bank" req>
               <select style={fs} value={fundBank} onChange={e=>setFundBank(e.target.value)}>
@@ -307,7 +370,7 @@ const WalletTab=({user,balance,setBalance,activeTxs=[]})=>{
                 <button key={a} onClick={()=>setFundAmt(String(a))} style={{flex:1,padding:"9px 0",border:`1.5px solid ${fundAmt===String(a)?T.green:T.gray100}`,borderRadius:8,background:fundAmt===String(a)?T.greenLt:T.white,cursor:"pointer",fontSize:13,fontWeight:700,color:fundAmt===String(a)?T.green:T.gray700,minWidth:70,transition:"all .15s"}}>₦{a.toLocaleString()}</button>
               ))}
             </div>
-            <Btn variant="green" onClick={()=>fakeAction(`₦${parseFloat(fundAmt||0).toLocaleString()} added to your wallet.`,fundAmt,true)} disabled={ld||!fundAmt} style={{width:"100%",fontSize:15}}>
+            <Btn variant="green" onClick={handleDeposit} disabled={ld||!fundAmt} style={{width:"100%",fontSize:15}}>
               {ld?<><Spin/>Processing…</>:<><span className="msym" style={{fontSize:18}}>add_circle</span>Fund Wallet</>}
             </Btn>
           </div>
@@ -356,7 +419,7 @@ const WalletTab=({user,balance,setBalance,activeTxs=[]})=>{
               <span style={{fontWeight:800,color:T.green}}>${Math.max(0,balance-(parseFloat(txAmt)||0)).toLocaleString("en",{minimumFractionDigits:2})}</span>
               <div style={{fontSize:12,marginTop:3,color:T.gray400}}>No transfer fee for wallet-to-wallet payments.</div>
             </div>
-            <Btn variant="purple" onClick={()=>fakeAction(`$${parseFloat(txAmt||0).toLocaleString()} sent to ${txTo||"vendor"}.`,txAmt)} disabled={ld||!txAmt||!txTo} style={{width:"100%",fontSize:15,background:"#8b5cf6"}}>
+            <Btn variant="purple" onClick={handleTransfer} disabled={ld||!txAmt||!txTo} style={{width:"100%",fontSize:15,background:"#8b5cf6"}}>
               {ld?<><Spin/>Sending…</>:<><span className="msym" style={{fontSize:18}}>send</span>Send Transfer</>}
             </Btn>
           </div>
@@ -406,7 +469,7 @@ const WalletTab=({user,balance,setBalance,activeTxs=[]})=>{
               <span className="msym" style={{fontSize:16,flexShrink:0,marginTop:1}}>schedule</span>
               <div>Withdrawals processed within <strong>1–2 business days</strong>. A small international transfer fee may apply for non-NGN accounts.</div>
             </div>
-            <Btn variant="accent" onClick={()=>fakeAction(`$${parseFloat(wdAmt||0).toLocaleString()} withdrawal to ${BANKS.find(b=>b.id===wdBank)?.label} initiated.`,wdAmt)} disabled={ld||!wdAmt||!wdAcct||wdAcct.length<10} style={{width:"100%",fontSize:15}}>
+            <Btn variant="accent" onClick={handleWithdraw} disabled={ld||!wdAmt||!wdAcct||wdAcct.length<10} style={{width:"100%",fontSize:15}}>
               {ld?<><Spin/>Processing…</>:<><span className="msym" style={{fontSize:18}}>account_balance</span>Withdraw Funds</>}
             </Btn>
           </div>

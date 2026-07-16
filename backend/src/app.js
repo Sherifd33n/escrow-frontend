@@ -1,10 +1,16 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import authRoutes from './routes/auth.js';
 import usersRoutes from './routes/users.js';
+import transactionsRoutes from './routes/transactions.js';
+import walletRoutes from './routes/wallet.js';
 import errorHandler from './middleware/errorHandler.js';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+
 
 // Middleware
 app.use(cors({
@@ -14,19 +20,14 @@ app.use(cors({
 }));
 
 app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
-
-// Placeholder routes to prevent 404s on frontend during step-by-step dev
-app.use('/api/transactions', (req, res) => {
-  res.json([]);
-});
-
-app.use('/api/wallet', (req, res) => {
-  res.json({ balance: 0.00, history: [] });
-});
+app.use('/api/transactions', transactionsRoutes);
+app.use('/api/wallet', walletRoutes);
 
 // Root check
 app.get('/', (req, res) => {

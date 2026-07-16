@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import db from "../config/db.js";
 import authMiddleware from "../middleware/auth.js";
-import { sendOTPEmail } from "../utils/mailer.js";
+import { sendOTPEmail, sendPasswordResetLink } from "../utils/mailer.js";
 
 const router = express.Router();
 
@@ -47,12 +47,9 @@ router.post("/signup", async (req, res, next) => {
     });
   }
 
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
-
-  if (!passwordRegex.test(password)) {
+  if (password.length < 8) {
     return res.status(400).json({
-      error:
-        "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number.",
+      error: "Password must be at least 8 characters long.",
     });
   }
 
@@ -224,7 +221,8 @@ router.post("/login", async (req, res, next) => {
         notif_push: user.notif_push,
         public_profile: user.public_profile,
         marketing_comms: user.marketing_comms,
-        phone: user.phone
+        phone: user.phone,
+        phone_verified: user.phone_verified
       },
     });
   } catch (error) {
@@ -319,7 +317,8 @@ router.post("/verify-otp", async (req, res, next) => {
         notif_push: user.notif_push,
         public_profile: user.public_profile,
         marketing_comms: user.marketing_comms,
-        phone: user.phone
+        phone: user.phone,
+        phone_verified: user.phone_verified
       },
     });
   } catch (error) {
@@ -382,33 +381,39 @@ router.post("/forgot-password", async (req, res, next) => {
       email,
     ]);
     if (users.length === 0) {
-      // Avoid enumerating users, return success message even if not found
+      // Avoid enumerating users — always return success
       return res.json({
-        message: "If the email exists, a reset code has been sent.",
+        message: "If the email exists, a reset link has been sent.",
       });
     }
 
     const userId = users[0].id;
-    const otpCode = generateOTP();
-    const expiryMinutes = parseInt(process.env.OTP_EXPIRY_MINUTES || "10");
+
+    // Generate a secure random token (64 hex chars)
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const expiryMinutes = 30; // links valid for 30 minutes
     const expiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000);
 
-    // Invalidate existing active forgot password OTPs
+    // Invalidate any existing forgot-password tokens for this user
     await db.query(
       'UPDATE otp_codes SET used = 1 WHERE user_id = ? AND type = "forgot"',
       [userId],
     );
 
-    // Insert forgot password OTP
+    // Insert the new token
     await db.query(
       "INSERT INTO otp_codes (user_id, code, type, expires_at) VALUES (?, ?, ?, ?)",
-      [userId, otpCode, "forgot", expiresAt],
+      [userId, resetToken, "forgot", expiresAt],
     );
 
-    // Send email
-    await sendOTPEmail(email, otpCode, "forgot");
+    // Build the reset link
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5174";
+    const resetLink = `${frontendUrl}?reset_token=${resetToken}&reset_email=${encodeURIComponent(email)}`;
 
-    res.json({ message: "If the email exists, a reset code has been sent." });
+    // Send the link via email
+    await sendPasswordResetLink(email, resetLink, expiryMinutes);
+
+    res.json({ message: "If the email exists, a reset link has been sent." });
   } catch (error) {
     next(error);
   }
@@ -416,61 +421,48 @@ router.post("/forgot-password", async (req, res, next) => {
 
 // 6. Reset Password Route
 router.post("/reset-password", async (req, res, next) => {
-  const { code, newPassword } = req.body;
+  const { token, newPassword } = req.body;
 
-  const email = req.body.email?.trim().toLowerCase();
-
-  if (!email || !code || !newPassword) {
+  if (!token || !newPassword) {
     return res
       .status(400)
-      .json({ error: "Please provide email, code, and new password." });
+      .json({ error: "Please provide the reset token and a new password." });
   }
 
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
-
-  if (!passwordRegex.test(newPassword)) {
+  if (newPassword.length < 8) {
     return res.status(400).json({
-      error:
-        "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number.",
+      error: "Password must be at least 8 characters long.",
     });
   }
 
   try {
-    const users = await db.query("SELECT id FROM users WHERE email = ?", [
-      email,
-    ]);
-    if (users.length === 0) {
-      return res.status(400).json({ error: "Invalid email or reset code." });
-    }
-
-    const userId = users[0].id;
-
-    // Verify forgot password OTP
+    // Find the valid token
     const otps = await db.query(
-      'SELECT * FROM otp_codes WHERE user_id = ? AND code = ? AND type = "forgot" AND used = 0 AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1',
-      [userId, code],
+      'SELECT * FROM otp_codes WHERE code = ? AND type = "forgot" AND used = 0 AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1',
+      [token],
     );
 
     if (otps.length === 0) {
-      return res.status(400).json({ error: "Invalid or expired reset code." });
+      return res.status(400).json({
+        error: "This reset link is invalid or has expired. Please request a new one.",
+      });
     }
 
     const otp = otps[0];
+    const userId = otp.user_id;
 
-    // Hash new password
+    // Hash the new password
     const passwordHash = await bcrypt.hash(newPassword, 12);
 
-    // Update password and mark OTP as used
+    // Update password and mark token as used
     const conn = await db.getPool().getConnection();
     try {
       await conn.beginTransaction();
-
       await conn.query("UPDATE users SET password_hash = ? WHERE id = ?", [
         passwordHash,
         userId,
       ]);
       await conn.query("UPDATE otp_codes SET used = 1 WHERE id = ?", [otp.id]);
-
       await conn.commit();
     } catch (err) {
       await conn.rollback();
