@@ -29,6 +29,10 @@ const SettingsTab = ({ user, onUserUpdate, onLogout }) => {
   const [profileMsg, setProfileMsg] = useState(null);
   const [profileErr, setProfileErr] = useState(null);
 
+  // Reviews stats state
+  const [reviewsStats, setReviewsStats] = useState(null);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+
   // Password state
   const [pwSaving, setPwSaving] = useState(false);
   const [pwErr, setPwErr] = useState(null);
@@ -85,7 +89,20 @@ const SettingsTab = ({ user, onUserUpdate, onLogout }) => {
     };
   }, []);
 
-
+  // Fetch reviews stats
+  useEffect(() => {
+    if (user?.id) {
+      setLoadingReviews(true);
+      users.getReviews(user.id)
+        .then(({ data }) => {
+          setLoadingReviews(false);
+          if (data) {
+            setReviewsStats(data);
+          }
+        })
+        .catch(() => setLoadingReviews(false));
+    }
+  }, [user?.id]);
 
   // Revoke session
   const handleRevokeSession = async (id) => {
@@ -329,6 +346,30 @@ const SettingsTab = ({ user, onUserUpdate, onLogout }) => {
                   </span>
                   Email verified
                 </div>
+                {reviewsStats && reviewsStats.totalReviews > 0 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+                    <span style={{ display: "flex", gap: 1 }}>
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <span
+                          key={star}
+                          className="msym"
+                          style={{
+                            fontSize: 14,
+                            color: star <= Math.round(reviewsStats.averageRating) ? "#d97706" : T.gray100
+                          }}
+                        >
+                          star
+                        </span>
+                      ))}
+                    </span>
+                    <strong style={{ fontSize: 12.5, fontWeight: 700, color: T.primary }}>
+                      {reviewsStats.averageRating}
+                    </strong>
+                    <span style={{ fontSize: 12, color: T.gray400 }}>
+                      ({reviewsStats.totalReviews} review{reviewsStats.totalReviews !== 1 ? "s" : ""})
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
             <div
@@ -459,7 +500,91 @@ const SettingsTab = ({ user, onUserUpdate, onLogout }) => {
             </Btn>
           </div>
 
+          {/* Reviews Card */}
+          {reviewsStats && (
+            <div
+              style={{
+                background: T.white,
+                border: `1px solid ${T.gray100}`,
+                borderRadius: 14,
+                padding: "clamp(16px,3vw,24px)",
+              }}
+            >
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: T.primary, marginBottom: 12 }}>Reviews & Ratings</h3>
+              
+              <div style={{ display: "flex", alignItems: "center", gap: 24, marginBottom: 20, flexWrap: "wrap" }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 36, fontWeight: 800, color: T.primary, lineHeight: 1 }}>{reviewsStats.averageRating}</div>
+                  <div style={{ display: "flex", gap: 1, margin: "6px 0", justifyContent: "center" }}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <span
+                        key={star}
+                        className="msym"
+                        style={{
+                          fontSize: 16,
+                          color: star <= Math.round(reviewsStats.averageRating) ? "#d97706" : T.gray100
+                        }}
+                      >
+                        star
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 12, color: T.gray500 }}>{reviewsStats.totalReviews} reviews</div>
+                </div>
 
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, minWidth: 200 }}>
+                  {["5", "4", "3", "2", "1"].map((stars) => {
+                    const count = reviewsStats.breakdown[stars] || 0;
+                    const percent = reviewsStats.totalReviews > 0 ? (count / reviewsStats.totalReviews) * 100 : 0;
+                    return (
+                      <div key={stars} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12.5 }}>
+                        <span style={{ width: 10, fontWeight: 600 }}>{stars}</span>
+                        <div style={{ flex: 1, height: 6, background: T.offWhite, borderRadius: 3, overflow: "hidden" }}>
+                          <div style={{ width: `${percent}%`, height: "100%", background: "#d97706", borderRadius: 3 }} />
+                        </div>
+                        <span style={{ width: 24, textAlign: "right", color: T.gray400 }}>{count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <h4 style={{ fontSize: 14, fontWeight: 700, color: T.primary, marginBottom: 10 }}>Latest Reviews</h4>
+              {reviewsStats.reviews.length === 0 ? (
+                <p style={{ fontSize: 13, color: T.gray500, fontStyle: "italic", margin: 0 }}>No reviews received yet.</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {reviewsStats.reviews.slice(0, 3).map((r) => (
+                    <div key={r.id} style={{ background: T.offWhite, borderRadius: 10, padding: 12, border: `1px solid ${T.gray100}` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                        <span style={{ fontWeight: 700, fontSize: 13, color: T.primary }}>{r.reviewer_name}</span>
+                        <span style={{ display: "flex", gap: 1 }}>
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <span
+                              key={star}
+                              className="msym"
+                              style={{
+                                fontSize: 12,
+                                color: star <= r.rating ? "#d97706" : T.gray100
+                              }}
+                            >
+                              star
+                            </span>
+                          ))}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: 12.5, color: T.gray700, margin: 0, lineHeight: 1.5 }}>
+                        {r.comment || <span style={{ fontStyle: "italic", color: T.gray400 }}>No comment left.</span>}
+                      </p>
+                      <div style={{ fontSize: 10.5, color: T.gray400, marginTop: 6, textAlign: "right" }}>
+                        {new Date(r.created_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 2FA + Login Activity side by side */}
           <div
