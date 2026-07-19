@@ -11,6 +11,7 @@ import DisputeModal from "../../components/dashboard/DisputeModal";
 import SettingsTab from "../../components/dashboard/SettingsTab";
 import WalletTab from "../../components/dashboard/WalletTab";
 import SubscriptionsTab from "../../components/dashboard/SubscriptionsTab";
+import ReviewModal from "../../components/dashboard/ReviewModal";
 import { users, transactions, wallet } from "../../utils/api";
 
 const TABS = [
@@ -42,6 +43,7 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
   const [showContract, setShowContract] = useState(null);
   const [showScope, setShowScope]   = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [showReview, setShowReview] = useState(null);
 
   const fetchDashboardData = async () => {
     const [txsRes, walletRes] = await Promise.all([
@@ -309,6 +311,7 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
                       <Btn variant="outline" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowContract(tx); }}>📄 Contract</Btn>
                       <Btn variant="teal" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowAudit(tx); }}>🤖 AI Audit</Btn>
                       {tx.status === "inprogress" && <Btn variant="red" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowDispute(tx); }}>⚠️ Dispute</Btn>}
+                      {tx.status === "completed" && <Btn variant="green" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowReview(tx); }}>⭐ Reviews & Ratings</Btn>}
                     </div>
                   )}
                 </div>
@@ -484,14 +487,14 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
         <DisputeModal
           tx={showDispute}
           onClose={() => setShowDispute(null)}
-          onSubmit={async () => {
-            await transactions.updateStatus(showDispute.realId, "disputed");
+          onSubmit={() => {
             fetchDashboardData();
           }}
         />
       )}
       {showContract && <ContractModal tx={showContract} scope={scope} onClose={() => setShowContract(null)} />}
       {showScope && <ScopeModal catLabel={CATS.find(c=>c.id===nf.type)?.label||"Software"} onClose={() => setShowScope(false)} onApply={s => { setScope(s); setNf(p => ({ ...p, title:s.title })); }} />}
+      {showReview && <ReviewModal tx={showReview} onClose={() => setShowReview(null)} onSubmit={fetchDashboardData} />}
 
       {/* Mobile Bottom Nav */}
       <nav className="mbb" style={{ display:"none", position:"fixed", bottom:0, left:0, right:0, zIndex:50, background:"#fbf9fc", borderTop:"1px solid #c5c6cf", justifyContent:"space-around", alignItems:"center", height:66, padding:"0 4px" }}>

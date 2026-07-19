@@ -55,14 +55,16 @@ async function requestMultipart(method, path, formData) {
     console.error("API Request Error:", err);
     return {
       data: null,
-      error: err instanceof Error ? err.message : "Network error — is the server running?",
+      error:
+        err instanceof Error
+          ? err.message
+          : "Network error — is the server running?",
     };
   }
 }
 
 // ─── Core fetch wrapper ──────────────────────────────────────────
 async function request(method, path, body, auth = true) {
-
   const headers = { "Content-Type": "application/json" };
 
   if (auth) {
@@ -183,6 +185,47 @@ export const transactions = {
 
   payMilestone: (milestoneId) =>
     post(`/transactions/milestones/${milestoneId}/pay`),
+
+  fileDispute: (id, data) => post(`/transactions/${id}/dispute`, data),
+
+  getDispute: (id) => get(`/transactions/${id}/dispute`),
+
+  resolveDispute: (id, data) => patch(`/transactions/${id}/dispute/resolve`, data),
+
+  submitReview: (id, data) => post(`/transactions/${id}/review`, data),
+
+  getReviews: (id) => get(`/transactions/${id}/review`),
+};
+
+// ─── ADMIN ───────────────────────────────────────────────────────
+export const admin = {
+  getDashboard: () => get("/admin/dashboard"),
+
+  getTransactions: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return get(`/admin/transactions${qs ? "?" + qs : ""}`);
+  },
+
+  getUsers: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return get(`/admin/users${qs ? "?" + qs : ""}`);
+  },
+
+  getDisputes: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return get(`/admin/disputes${qs ? "?" + qs : ""}`);
+  },
+
+  getDispute: (id) => get(`/admin/disputes/${id}`),
+
+  reviewDispute: (id) => patch(`/admin/disputes/${id}/review`, {}),
+
+  getReviews: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return get(`/admin/reviews${qs ? "?" + qs : ""}`);
+  },
+
+  deleteReview: (id) => del(`/admin/reviews/${id}`),
 };
 
 // ─── WALLET ──────────────────────────────────────────────────────
@@ -200,6 +243,11 @@ export const wallet = {
   history: (page = 1) => get(`/wallet/history?page=${page}`),
 };
 
+// ─── EXCHANGE RATE ───────────────────────────────────────────────
+export const exchangeRate = {
+  get: () => get("/exchange-rate", false),
+};
+
 // ─── USERS ───────────────────────────────────────────────────────
 export const users = {
   getProfile: () => get("/users/profile"),
@@ -208,7 +256,8 @@ export const users = {
 
   updateKYC: (tier) => patch("/users/kyc", { tier }),
 
-  submitKYC: (formData) => requestMultipart("POST", "/users/kyc/submit", formData),
+  submitKYC: (formData) =>
+    requestMultipart("POST", "/users/kyc/submit", formData),
 
   getKYCStatus: () => get("/users/kyc/status"),
 
@@ -230,5 +279,6 @@ export const users = {
   getSessions: () => get("/users/sessions"),
 
   revokeSession: (id) => del(`/users/sessions/${id}`),
-};
 
+  getReviews: (id) => get(`/users/${id}/reviews`),
+};

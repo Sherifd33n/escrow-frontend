@@ -9,6 +9,7 @@ import SettingsTab from "../../components/dashboard/SettingsTab";
 import WalletTab from "../../components/dashboard/WalletTab";
 import KYC from "../../components/dashboard/KYCModal";
 import PhoneVerifyModal from "../../components/dashboard/PhoneVerifyModal";
+import ReviewModal from "../../components/dashboard/ReviewModal";
 import { users, transactions, wallet } from "../../utils/api";
 
 const VENDOR_TABS = [
@@ -35,6 +36,7 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
   const [showPhoneVerify, setShowPhoneVerify] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
   const [milestoneNote, setMilestoneNote] = useState("");
+  const [showReview, setShowReview] = useState(null);
 
   const fetchDashboardData = async () => {
     const [txsRes, walletRes] = await Promise.all([
@@ -287,6 +289,9 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
                           ⏳ Client is reviewing your submission. You'll be notified when done.
                         </div>
                       )}
+                      {job.status === "completed" && (
+                        <Btn variant="green" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowReview(job); }}>⭐ Reviews & Ratings</Btn>
+                      )}
                       {["inprogress","funded"].includes(job.status) && (
                         <Btn variant="outline" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowAudit(job); }}>🤖 AI Audit</Btn>
                       )}
@@ -458,13 +463,13 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
         <DisputeModal
           tx={showDispute}
           onClose={() => setShowDispute(null)}
-          onSubmit={async () => {
-            await transactions.updateStatus(showDispute.realId, "disputed");
+          onSubmit={() => {
             fetchDashboardData();
           }}
         />
       )}
       {showContract && <ContractModal tx={showContract} scope={null} onClose={() => setShowContract(null)} />}
+      {showReview && <ReviewModal tx={showReview} onClose={() => setShowReview(null)} onSubmit={fetchDashboardData} />}
 
       {/* Mobile Bottom Nav */}
       <nav className="mbb" style={{ display:"none", position:"fixed", bottom:0, left:0, right:0, zIndex:50, background:"#fbf9fc", borderTop:"1px solid #c5c6cf", justifyContent:"space-around", alignItems:"center", height:66 }}>
