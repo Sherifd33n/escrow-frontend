@@ -198,6 +198,7 @@ const Categories=({onSignup})=>{
     {icon:"bar_chart",title:"Data Analytics",         desc:"Dashboards, pipelines, reports. Verified for accuracy, coverage, and spec compliance.",       color:"#006c47"},
     {icon:"article",title:"Technical Documentation",desc:"API docs, SOPs, wikis. AI checks completeness, accuracy, and scope match.",                   color:"#64748b"},
   ];
+
   return(
     <section style={{
       position:"relative",
@@ -340,4 +341,4 @@ export default function HomePage({ navigate, user, onLogout }) {
       <Footer />
     </div>
   );
-}
+}

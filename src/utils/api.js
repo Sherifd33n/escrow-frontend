@@ -26,7 +26,8 @@ async function requestMultipart(method, path, formData) {
 
     if (res.status === 401) {
       clearToken();
-      window.location.href = "/login";
+      sessionStorage.setItem("vp_page", "login");
+      window.location.replace("/");
       return {
         data: null,
         error: "Your session has expired. Please log in again.",
@@ -84,8 +85,8 @@ async function request(method, path, body, auth = true) {
     // Session expired
     if (res.status === 401 && auth) {
       clearToken();
-
-      window.location.href = "/login";
+      sessionStorage.setItem("vp_page", "login");
+      window.location.replace("/");
 
       return {
         data: null,
