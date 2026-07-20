@@ -89,6 +89,25 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
+  // ── Back-button guard ──────────────────────────────────────────
+  // When a user is logged in, intercept every popstate (browser Back/Forward)
+  // and immediately re-push the current state, keeping them on the dashboard.
+  useEffect(() => {
+    if (!user) return; // only active while authenticated
+
+    // Push a sentinel entry so there is always something to intercept.
+    window.history.pushState({ spa: true }, "");
+
+    const handlePop = () => {
+      // Re-push so the browser "back" entry is never consumed.
+      window.history.pushState({ spa: true }, "");
+    };
+
+    window.addEventListener("popstate", handlePop);
+    return () => window.removeEventListener("popstate", handlePop);
+  }, [user]);
+  // ──────────────────────────────────────────────────────────────
+
   const onLoginSuccess = (u) => {
     setUser(u);
     navigate("dashboard");
