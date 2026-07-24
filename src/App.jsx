@@ -13,6 +13,7 @@ import ClientDashboard from "./pages/dashboard/ClientDashboard";
 import VendorDashboard from "./pages/dashboard/VendorDashboard";
 import ServicesPage from "./pages/servicesPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
+import AdminPanel from "./components/dashboard/AdminPanel";
 
 const TRANSIENT = ["splash", "otp"];
 
@@ -38,7 +39,7 @@ export default function App() {
   });
 
   const [pendingUser, setPendingUser] = useState(null);
-  const [resetToken, setResetToken]   = useState(null);
+  const [resetToken, setResetToken] = useState(null);
 
   useEffect(() => {
     const restoreSession = async () => {
@@ -128,7 +129,11 @@ export default function App() {
   };
 
   const Dashboard =
-    user?.role === "provider" ? VendorDashboard : ClientDashboard;
+    user?.role === "admin"
+      ? AdminPanel
+      : user?.role === "provider"
+        ? VendorDashboard
+        : ClientDashboard;
 
   return (
     <>
@@ -155,7 +160,9 @@ export default function App() {
         />
       )}
       {page === "forgot" && <ForgotPasswordPage navigate={navigate} />}
-      {page === "reset"  && <ResetPasswordPage  token={resetToken} navigate={navigate} />}
+      {page === "reset" && (
+        <ResetPasswordPage token={resetToken} navigate={navigate} />
+      )}
       {page === "services" && <ServicesPage navigate={navigate} user={user} />}
       {page === "subscription" && (
         <SubscriptionPage navigate={navigate} user={user} />

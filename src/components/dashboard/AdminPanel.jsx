@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { T } from "../../tokens";
-import { Btn, Badge, SB } from "../../components/ui";
+import { Btn, Badge, StatusBadge as SB } from "../../components/ui";
 import { MTX, CATS } from "../../data/constants";
 import { users, admin } from "../../utils/api";
 
-const AdminPanel = ({ onBack }) => {
+const AdminPanel = ({ onBack, onLogout }) => {
+  const handleExit = onBack || onLogout;
   const [tab, setTab] = useState("overview");
   const [kycQueue, setKycQueue] = useState([]);
   const [kycLoading, setKycLoading] = useState(false);
@@ -416,7 +417,7 @@ const AdminPanel = ({ onBack }) => {
     <div style={{ background: T.offWhite, minHeight: "100vh" }}>
       <div style={{ background: "linear-gradient(135deg,#1e1b4b,#3730a3)", color: T.white, padding: "0 1.5rem" }}>
         <div style={{ maxWidth: 1280, margin: "0 auto", display: "flex", alignItems: "center", height: 60, gap: 16 }}>
-          <div style={{ fontWeight: 800, fontSize: 18, cursor: "pointer" }} onClick={onBack}>
+          <div style={{ fontWeight: 800, fontSize: 18, cursor: "pointer" }} onClick={handleExit}>
             <span style={{ color: T.green }}>Escrow</span> <span style={{ fontSize: 12, opacity: .6, fontWeight: 400 }}>Admin</span>
           </div>
           <div style={{ display: "flex", gap: 0, marginLeft: 12, overflowX: "auto" }}>
@@ -427,7 +428,7 @@ const AdminPanel = ({ onBack }) => {
             ))}
           </div>
           <div style={{ marginLeft: "auto" }}>
-            <button onClick={onBack} style={{ background: "none", border: "1px solid rgba(255,255,255,.2)", color: "rgba(255,255,255,.6)", padding: "7px 13px", borderRadius: 6, cursor: "pointer", fontSize: 12 }}>
+            <button onClick={handleExit} style={{ background: "none", border: "1px solid rgba(255,255,255,.2)", color: "rgba(255,255,255,.6)", padding: "7px 13px", borderRadius: 6, cursor: "pointer", fontSize: 12 }}>
               ← Exit Admin
             </button>
           </div>
