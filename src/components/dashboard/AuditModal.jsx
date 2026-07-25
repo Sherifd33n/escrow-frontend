@@ -60,11 +60,20 @@ const AuditModal=({tx,onClose,onApprove,onRevision})=>{
               <div style={{fontWeight:700,fontSize:13,color:T.primary,marginBottom:5,display:"flex",alignItems:"center",gap:6}}><span className="msym" style={{fontSize:16}}>smart_toy</span>AI Recommendation</div>
               <p style={{fontSize:13,color:"#1e40af",lineHeight:1.65}}>{res.recommendation}</p>
             </div>
-            <div style={{display:"flex",gap:9}}>
-              <Btn variant="outline" onClick={onClose} style={{flex:1,fontSize:13}}>Close Report</Btn>
-              {res.status!=="revision_required"&&<Btn variant="green" onClick={()=>{onApprove();onClose();}} style={{flex:1,fontSize:13}}><span className="msym" style={{fontSize:16}}>check_circle</span>Approve & Release →</Btn>}
-              {res.status!=="passed"&&<Btn variant="accent" onClick={()=>{onRevision();onClose();}} style={{flex:1,fontSize:13}}><span className="msym" style={{fontSize:16}}>refresh</span>Request Revision</Btn>}
-            </div>
+            {(() => {
+              const isCompleted = tx.status === "completed";
+              const isDisputed = tx.status === "disputed";
+              const isCancelled = tx.status === "cancelled";
+              const isInactive = isCompleted || isDisputed || isCancelled;
+
+              return (
+                <div style={{display:"flex",gap:9}}>
+                  <Btn variant="outline" onClick={onClose} style={{flex:1,fontSize:13}}>Close Report</Btn>
+                  {res.status!=="revision_required"&&<Btn variant="green" disabled={isInactive} onClick={async ()=>{if(isInactive)return;await onApprove();onClose();}} style={{flex:1,fontSize:13,opacity:isInactive?0.55:1,cursor:isInactive?"not-allowed":"pointer"}}><span className="msym" style={{fontSize:16}}>check_circle</span>{isCompleted?"Funds Released":isDisputed?"Under Dispute":"Approve & Release →"}</Btn>}
+                  {res.status!=="passed"&&!isInactive&&<Btn variant="accent" onClick={async ()=>{await onRevision();onClose();}} style={{flex:1,fontSize:13}}><span className="msym" style={{fontSize:16}}>refresh</span>Request Revision</Btn>}
+                </div>
+              );
+            })()}
           </>)}
         </div>
       </div>

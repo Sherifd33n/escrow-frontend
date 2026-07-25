@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { T } from "../../tokens";
 import { Btn, Badge, StatusBadge as SB } from "../../components/ui";
 import { MTX, CATS } from "../../data/constants";
-import { users, admin } from "../../utils/api";
+import { users, admin, transactions } from "../../utils/api";
 
 const AdminPanel = ({ onBack, onLogout }) => {
   const handleExit = onBack || onLogout;

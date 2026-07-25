@@ -298,7 +298,7 @@ const Dashboard=({user,onLogout,navigate})=>{
         )}
 
         {/* WALLET TAB */}
-        {tab==="wallet"&&<WalletTab user={user} balance={walletBalance} setBalance={setWalletBalance} activeTxs={active}/>}
+        {tab==="wallet"&&<WalletTab user={user} balance={walletBalance} setBalance={setWalletBalance} activeTxs={active.filter(t => !["completed","cancelled"].includes(t.status))}/>}
 
         {/* KYC TAB */}
         {tab==="kyc"&&(

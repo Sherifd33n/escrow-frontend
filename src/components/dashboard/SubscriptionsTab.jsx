@@ -13,10 +13,11 @@ const STATUS_CFG = {
 };
 
 const MILESTONE_CFG = {
-  paid:     { label:"Paid",    icon:"check_circle",  color:"#006c47", bg:"#f0fdf4" },
-  due:      { label:"Due Now", icon:"schedule",      color:"#dc2626", bg:"#fef2f2" },
-  upcoming: { label:"Upcoming",icon:"radio_button_unchecked", color:"#8b5cf6", bg:"#f5f3ff" },
-  pending:  { label:"Pending", icon:"radio_button_unchecked", color:"#75777f", bg:"#f5f3f6" },
+  paid:     { label:"Paid",     icon:"check_circle",           color:"#006c47", bg:"#f0fdf4" },
+  approved: { label:"Approved", icon:"check_circle",           color:"#006c47", bg:"#f0fdf4" },
+  due:      { label:"Due Now",  icon:"schedule",               color:"#dc2626", bg:"#fef2f2" },
+  upcoming: { label:"Upcoming", icon:"radio_button_unchecked", color:"#8b5cf6", bg:"#f5f3ff" },
+  pending:  { label:"Pending",  icon:"radio_button_unchecked", color:"#75777f", bg:"#f5f3f6" },
 };
 
 function PaymentCard({ payment, onPay }) {
@@ -121,11 +122,11 @@ function PaymentCard({ payment, onPay }) {
           <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:8,animation:"fadeIn .2s ease"}}>
             {payment.milestones.map((m,i) => {
               const mc = MILESTONE_CFG[m.status] || MILESTONE_CFG.upcoming;
-              const isDue = m.status === "due";
+              const isPayable = m.status !== "paid" && m.status !== "approved";
               return (
                 <div key={i} style={{display:"flex",alignItems:"center",gap:12,
                   background: mc.bg,borderRadius:10,padding:"12px 14px",
-                  border:`1px solid ${isDue ? "#fecaca" : "#e9e7eb"}`}}>
+                  border:`1px solid ${isPayable ? "#fecaca" : "#e9e7eb"}`}}>
                   <div style={{width:32,height:32,borderRadius:8,background:"#fff",
                     display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,
                     boxShadow:"0 1px 4px rgba(0,0,0,.08)"}}>
@@ -140,7 +141,7 @@ function PaymentCard({ payment, onPay }) {
                   </div>
                   <div style={{textAlign:"right",flexShrink:0}}>
                     <div style={{fontSize:15,fontWeight:800,color:"#001637"}}>${m.amount.toLocaleString()}</div>
-                    {isDue && (
+                    {isPayable && (
                       <button onClick={() => onPay(payment,m)}
                         style={{marginTop:4,background:"#dc2626",color:"#fff",border:"none",
                           borderRadius:6,padding:"4px 12px",fontSize:11,fontWeight:700,

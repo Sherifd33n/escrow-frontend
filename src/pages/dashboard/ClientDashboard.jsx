@@ -108,8 +108,13 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
   };
 
   const payments = txs.map(t => {
-    const paid = (t.milestones || []).filter(m => m.status === 'paid').reduce((s, m) => s + parseFloat(m.amount), 0);
     const totalAmount = parseFloat(t.amount) || 0;
+    // milestones marked 'approved' or 'paid' both count as paid
+    const paidFromMilestones = (t.milestones || [])
+      .filter(m => m.status === 'paid' || m.status === 'approved')
+      .reduce((s, m) => s + parseFloat(m.amount), 0);
+    // For completed transactions, the full amount is paid
+    const paid = t.status === 'completed' ? totalAmount : paidFromMilestones;
     const remaining = Math.max(0, totalAmount - paid);
 
     let status = 'in_progress';
@@ -141,8 +146,9 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
     };
   });
 
-  const activeCount = txs.filter(t => !["completed","disputed"].includes(t.status)).length;
-  const totalValue  = txs.reduce((s, t) => s + t.amount, 0);
+  const activeTxs   = txs.filter(t => !["completed","cancelled"].includes(t.status));
+  const activeCount = activeTxs.length;
+  const totalValue  = activeTxs.reduce((s, t) => s + (parseFloat(t.escrow_balance) || 0), 0);
   const duePayments = payments.filter(p => p.status === "due" || p.milestones?.some(m => m.status === "due")).length;
 
   return (
@@ -310,7 +316,7 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
                     <div style={{ marginTop:14, paddingTop:14, borderTop:"1px solid #f0f0f0", display:"flex", gap:8, flexWrap:"wrap" }}>
                       <Btn variant="outline" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowContract(tx); }}>📄 Contract</Btn>
                       <Btn variant="teal" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowAudit(tx); }}>🤖 AI Audit</Btn>
-                      {tx.status === "inprogress" && <Btn variant="red" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowDispute(tx); }}>⚠️ Dispute</Btn>}
+                      {!["completed","cancelled","disputed"].includes(tx.status) && <Btn variant="red" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowDispute(tx); }}>⚠️ Dispute</Btn>}
                       {tx.status === "completed" && <Btn variant="green" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowReview(tx); }}>⭐ Reviews & Ratings</Btn>}
                     </div>
                   )}
@@ -321,7 +327,7 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
         )}
 
         {/* ── WALLET ── */}
-        {tab === "wallet" && <WalletTab user={user} balance={walletBalance} onBalanceChange={setWalletBalance} activeTxs={txs} />}
+        {tab === "wallet" && <WalletTab user={user} balance={walletBalance} onBalanceChange={setWalletBalance} activeTxs={activeTxs} />}
 
         {/* ── PAYMENTS (subscribed services) ── */}
         {tab === "payments" && <SubscriptionsTab user={user} payments={payments} onPaymentSuccess={fetchDashboardData} />}
@@ -474,11 +480,19 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
           tx={showAudit}
           onClose={() => setShowAudit(null)}
           onApprove={async () => {
-            await transactions.updateStatus(showAudit.realId, "approved");
+            const res = await transactions.updateStatus(showAudit.realId, "approved");
+            if (res?.error) {
+              alert(res.error);
+              return;
+            }
             fetchDashboardData();
           }}
           onRevision={async () => {
-            await transactions.updateStatus(showAudit.realId, "revision");
+            const res = await transactions.updateStatus(showAudit.realId, "revision");
+            if (res?.error) {
+              alert(res.error);
+              return;
+            }
             fetchDashboardData();
           }}
         />

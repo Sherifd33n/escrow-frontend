@@ -77,9 +77,15 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
     fetchDashboardData();
   };
 
-  const totalEarned   = jobs.filter(j => j.status === "completed").reduce((s,j) => s+j.amount, 0);
+  const totalEarned   = jobs.filter(j => j.status === "completed").reduce((sum, j) => {
+    if (!j.milestones || j.milestones.length === 0) return sum + j.amount;
+    const earnedMilestones = j.milestones.filter(m => ["approved", "paid"].includes(m.status));
+    if (earnedMilestones.length === 0) return sum;
+    const earnedAmount = earnedMilestones.reduce((mSum, m) => mSum + parseFloat(m.amount || 0), 0);
+    return sum + (earnedAmount || j.amount);
+  }, 0);
   const pendingPayout = jobs.filter(j => j.status === "approved").reduce((s,j) => s+j.amount, 0);
-  const activeJobs    = jobs.filter(j => !["completed","disputed","cancelled"].includes(j.status)).length;
+  const activeJobs    = jobs.filter(j => !["completed","cancelled"].includes(j.status)).length;
 
   const submitMilestone = async (jobId) => {
     const job = jobs.find(j => j.id === jobId);
@@ -239,7 +245,7 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
                 {detail?.id === job.id && (
                   <div style={{ marginTop:16, paddingTop:16, borderTop:"1px solid #f0f0f0" }}>
                     <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:10, marginBottom:16 }}>
-                      {[["Milestones",""+job.milestones],["Category",job.type],["Your Role","Service Provider"],["Status",SCFG[job.status]?.label||job.status]].map(([k,v]) => (
+                      {[["Milestones", Array.isArray(job.milestones) ? job.milestones.length : (job.milestones || 0)],["Category",job.type],["Your Role","Service Provider"],["Status",SCFG[job.status]?.label||job.status]].map(([k,v]) => (
                         <div key={k} style={{ background:"#f9f9fb", borderRadius:10, padding:"10px 12px" }}>
                           <div style={{ fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:".06em", color:"#75777f", marginBottom:2 }}>{k}</div>
                           <div style={{ fontSize:13, fontWeight:700, color:"#001637" }}>{v}</div>
@@ -294,6 +300,9 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
                       )}
                       {["inprogress","funded"].includes(job.status) && (
                         <Btn variant="outline" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowAudit(job); }}>🤖 AI Audit</Btn>
+                      )}
+                      {!["completed","cancelled","disputed"].includes(job.status) && (
+                        <Btn variant="red" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowDispute(job); }}>⚠️ Dispute</Btn>
                       )}
                     </div>
                   </div>
@@ -369,7 +378,7 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
         )}
 
         {/* ── WALLET ── */}
-        {tab === "wallet" && <WalletTab user={user} balance={walletBalance} onBalanceChange={setWalletBalance} activeTxs={jobs} />}
+        {tab === "wallet" && <WalletTab user={user} balance={walletBalance} onBalanceChange={setWalletBalance} activeTxs={jobs.filter(j => !["completed","cancelled"].includes(j.status))} />}
 
         {/* ── DISPUTES ── */}
         {tab === "disputes" && (

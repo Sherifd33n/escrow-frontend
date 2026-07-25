@@ -41,6 +41,24 @@ const SettingsTab = ({ user, onUserUpdate, onLogout }) => {
   const [sessions, setSessions] = useState([]);
   const [sessionsLd, setSessionsLd] = useState(false);
 
+  // Reviews state
+  const [reviewsData, setReviewsData] = useState(null);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+
+  useEffect(() => {
+    if (user?.id) {
+      setReviewsLoading(true);
+      users.getReviews(user.id)
+        .then(({ data, error }) => {
+          setReviewsLoading(false);
+          if (!error && data) {
+            setReviewsData(data);
+          }
+        })
+        .catch(() => setReviewsLoading(false));
+    }
+  }, [user?.id]);
+
   // Sync preference states when user prop changes
   const [syncedUserId, setSyncedUserId] = useState(user?.id);
 
@@ -980,6 +998,98 @@ const SettingsTab = ({ user, onUserUpdate, onLogout }) => {
                 )}
               </Btn>
             </div>
+          </div>
+
+          {/* Reviews & Ratings Section */}
+          <div
+            style={{
+              background: T.white,
+              border: `1px solid ${T.gray100}`,
+              borderRadius: 14,
+              padding: "clamp(16px,3vw,24px)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 16,
+              }}
+            >
+              <div>
+                <h3
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 700,
+                    color: T.primary,
+                    marginBottom: 2,
+                  }}
+                >
+                  Reviews & Ratings
+                </h3>
+                <p style={{ color: T.gray500, fontSize: 13 }}>
+                  Feedback and ratings received from counterparties.
+                </p>
+              </div>
+              {reviewsData && reviewsData.totalReviews > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#fef9c3", padding: "6px 12px", borderRadius: 20 }}>
+                  <span className="msym" style={{ fontSize: 18, color: "#eab308" }}>star</span>
+                  <span style={{ fontWeight: 800, fontSize: 14, color: "#854d0e" }}>{reviewsData.averageRating}</span>
+                  <span style={{ fontSize: 12, color: "#a16207" }}>({reviewsData.totalReviews})</span>
+                </div>
+              )}
+            </div>
+
+            {reviewsLoading ? (
+              <p style={{ fontSize: 13, color: T.gray500 }}>Loading reviews...</p>
+            ) : !reviewsData || reviewsData.totalReviews === 0 ? (
+              <div style={{ textAlign: "center", padding: "24px 0", color: T.gray400, fontSize: 13, fontStyle: "italic" }}>
+                No reviews received yet.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {reviewsData.reviews.map((r) => (
+                  <div
+                    key={r.id}
+                    style={{
+                      border: `1px solid ${T.gray100}`,
+                      borderRadius: 10,
+                      padding: "12px 14px",
+                      background: T.offWhite,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                      <span style={{ fontWeight: 700, fontSize: 13.5, color: T.primary }}>
+                        {r.reviewer_name || "Anonymous User"}
+                      </span>
+                      <div style={{ display: "flex", gap: 2 }}>
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <span
+                            key={s}
+                            className="msym"
+                            style={{
+                              fontSize: 16,
+                              color: s <= r.rating ? "#f59e0b" : "#e5e7eb",
+                            }}
+                          >
+                            star
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    {r.comment && (
+                      <p style={{ fontSize: 13, color: T.gray600, margin: 0, lineHeight: 1.5 }}>
+                        "{r.comment}"
+                      </p>
+                    )}
+                    <div style={{ fontSize: 11, color: T.gray400, marginTop: 6, textAlign: "right" }}>
+                      {new Date(r.created_at).toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         {/* end left column */}

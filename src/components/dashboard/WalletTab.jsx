@@ -491,19 +491,32 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
             >
               Escrow Protected
             </div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: T.gold }}>
-              ${activeTxs.reduce((a, b) => a + b.amount, 0).toLocaleString()}
-            </div>
-            <div
-              style={{
-                fontSize: 11,
-                color: "rgba(255,255,255,.3)",
-                marginTop: 2,
-              }}
-            >
-              {activeTxs.length} active transaction
-              {activeTxs.length === 1 ? "" : "s"}
-            </div>
+            {(() => {
+              const trulyActive = (activeTxs || []).filter(
+                (t) => !["completed", "cancelled"].includes(t.status),
+              );
+              const protectedAmount = trulyActive.reduce(
+                (sum, t) => sum + (parseFloat(t.escrow_balance) || 0),
+                0,
+              );
+              return (
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: T.gold }}>
+                    ${protectedAmount.toLocaleString()}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "rgba(255,255,255,.3)",
+                      marginTop: 2,
+                    }}
+                  >
+                    {trulyActive.length} active transaction
+                    {trulyActive.length === 1 ? "" : "s"}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
         <div
@@ -642,12 +655,19 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
           {(() => {
             const moneyIn = history
               .filter(
-                (t) => t.type === "deposit" || t.type === "escrow_release",
+                (t) =>
+                  t.type === "deposit" ||
+                  t.type === "escrow_release" ||
+                  t.type === "escrow_refund" ||
+                  t.type === "transfer_in",
               )
               .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
             const moneyOut = history
               .filter(
-                (t) => t.type === "withdrawal" || t.type === "escrow_hold",
+                (t) =>
+                  t.type === "withdrawal" ||
+                  t.type === "escrow_hold" ||
+                  t.type === "transfer_out",
               )
               .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
             const techSpend = history
@@ -812,7 +832,10 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
             ) : (
               history.map((t, i) => {
                 const isCredit =
-                  t.type === "deposit" || t.type === "escrow_release";
+                  t.type === "deposit" ||
+                  t.type === "escrow_release" ||
+                  t.type === "escrow_refund" ||
+                  t.type === "transfer_in";
                 const amtStr = parseFloat(t.amount || 0).toLocaleString("en", {
                   minimumFractionDigits: 2,
                 });
