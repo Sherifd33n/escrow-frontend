@@ -122,7 +122,10 @@ function PaymentCard({ payment, onPay }) {
           <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:8,animation:"fadeIn .2s ease"}}>
             {payment.milestones.map((m,i) => {
               const mc = MILESTONE_CFG[m.status] || MILESTONE_CFG.upcoming;
-              const isPayable = m.status !== "paid" && m.status !== "approved";
+              // Hide Pay Now if the overall transaction is completed (normal completion
+              // or dispute resolution) OR if this specific milestone was already paid/approved.
+              const isPayable = payment.status !== "completed" &&
+                m.status !== "paid" && m.status !== "approved";
               return (
                 <div key={i} style={{display:"flex",alignItems:"center",gap:12,
                   background: mc.bg,borderRadius:10,padding:"12px 14px",
@@ -165,8 +168,14 @@ export default function SubscriptionsTab({ user, navigate, payments = [], onPaym
   const [paySuccess, setPaySuccess] = useState(false);
 
   const totalPaid = payments.reduce((s,p) => s + p.paid, 0);
-  const totalRemaining = payments.reduce((s,p) => s + p.remaining, 0);
+  // Only active (non-completed) transactions have outstanding balances.
+  // Completed transactions — whether they finished smoothly or via dispute —
+  // are done and should never add to the "remaining" figure.
+  const totalRemaining = payments
+    .filter(p => p.status !== "completed")
+    .reduce((s,p) => s + p.remaining, 0);
   const dueCount = payments.filter(p => p.status === "due").length;
+
 
   const handlePay = (payment, milestone) => {
     setPayModal({ payment, milestone });

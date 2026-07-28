@@ -109,12 +109,16 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
 
   const payments = txs.map(t => {
     const totalAmount = parseFloat(t.amount) || 0;
-    // milestones marked 'approved' or 'paid' both count as paid
-    const paidFromMilestones = (t.milestones || [])
+    // Only count money that actually transferred:
+    //   'paid'     → buyer funded escrow in the normal payment flow
+    //   'approved' → dispute resolved in seller's favour (escrow released to provider)
+    // 'rejected' milestones (buyer wins dispute / refund) are intentionally excluded.
+    // We no longer fall back to `totalAmount` for completed transactions because a
+    // dispute resolved in the buyer's favour also sets status='completed' but the
+    // money was refunded, not paid out to the provider.
+    const paid = (t.milestones || [])
       .filter(m => m.status === 'paid' || m.status === 'approved')
       .reduce((s, m) => s + parseFloat(m.amount), 0);
-    // For completed transactions, the full amount is paid
-    const paid = t.status === 'completed' ? totalAmount : paidFromMilestones;
     const remaining = Math.max(0, totalAmount - paid);
 
     let status = 'in_progress';
