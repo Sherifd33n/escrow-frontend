@@ -193,8 +193,10 @@ export const transactions = {
 
   resolveDispute: (id, data) => patch(`/transactions/${id}/dispute/resolve`, data),
 
-  submitReview: (id, data) => post(`/transactions/${id}/review`, data),
+  getHistory: (id) => get(`/transactions/${id}/history`),
 
+  submitReview: (id, data) => post(`/transactions/${id}/review`, data),
+ 
   getReviews: (id) => get(`/transactions/${id}/review`),
 };
 
@@ -220,6 +222,8 @@ export const admin = {
   getDispute: (id) => get(`/admin/disputes/${id}`),
 
   reviewDispute: (id) => patch(`/admin/disputes/${id}/review`, {}),
+
+  resolveDispute: (id, data) => patch(`/admin/disputes/${id}/resolve`, data),
 
   getReviews: (params = {}) => {
     const qs = new URLSearchParams(params).toString();

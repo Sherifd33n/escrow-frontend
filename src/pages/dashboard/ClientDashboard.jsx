@@ -44,6 +44,7 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
   const [showScope, setShowScope]   = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
   const [showReview, setShowReview] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const fetchDashboardData = async () => {
     const [txsRes, walletRes] = await Promise.all([
@@ -86,6 +87,8 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
   };
 
   const createTx = async () => {
+    if (submitting) return;
+    setSubmitting(true);
     const { data, error } = await transactions.create({
       title: nf.title || scope?.title || "New Project",
       category: nf.type,
@@ -96,6 +99,7 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
       milestones_count: parseInt(nf.milestones) || 1,
       review_days: parseInt(nf.days) || 3
     });
+    setSubmitting(false);
     if (error) {
       alert(error);
       return;
@@ -449,7 +453,7 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
               )}
               <div style={{ display:"flex", justifyContent:"space-between", marginTop:18, gap:10 }}>
                 <Btn variant="outline" onClick={() => ns > 1 ? setNs(p => p-1) : setShowNew(false)}>{ns===1?"Cancel":"Back"}</Btn>
-                <Btn variant="accent" onClick={() => ns < 3 ? setNs(p => p+1) : createTx()} disabled={ns===1 && (!(nf.title||scope?.title)||!nf.amount)}>{ns<3?"Continue":"Create Transaction"}</Btn>
+                <Btn variant="accent" onClick={() => ns < 3 ? setNs(p => p+1) : createTx()} disabled={submitting || (ns===1 && (!(nf.title||scope?.title)||!nf.amount))}>{ns<3?"Continue":submitting?"Creating…":"Create Transaction"}</Btn>
               </div>
             </div>
           </div>

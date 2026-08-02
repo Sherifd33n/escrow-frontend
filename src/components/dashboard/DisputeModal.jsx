@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { T, fs } from "../../tokens";
 import { Btn, Spin } from "../../components/ui";
 import { transactions } from "../../utils/api";
@@ -20,6 +20,7 @@ const DisputeModal = ({ tx, onClose, onSubmit }) => {
   const [summ,   setSumm]   = useState("");
   const [done,   setDone]   = useState(false);
   const [err,    setErr]    = useState("");
+  const fileInputRef = useRef(null);
 
   const [existingDispute, setExistingDispute] = useState(null);
   const [loadingDispute, setLoadingDispute] = useState(false);
@@ -44,14 +45,29 @@ const DisputeModal = ({ tx, onClose, onSubmit }) => {
     }
   }, [tx]);
 
+  const handleFileChange = (e) => {
+    const picked = Array.from(e.target.files || []);
+    if (!picked.length) return;
+    setFiles(prev => {
+      const existing = new Set(prev.map(f => f.name));
+      const added = picked.filter(f => !existing.has(f.name));
+      return [...prev, ...added].slice(0, 5); // cap at 5 files
+    });
+    // reset input so the same file can be re-picked after removal
+    e.target.value = "";
+  };
+
   const sub = async () => {
     if (!reason || !desc) return;
     setLd(true);
     setErr("");
     try {
+      const attachmentLine = files.length
+        ? `\n\nAttachments: ${files.map(f => f.name).join(", ")}`
+        : "";
       const { data, error } = await transactions.fileDispute(tx.id, {
         reason,
-        evidence: desc + (files.length ? `\n\nAttachments: ${files.join(", ")}` : "")
+        evidence: desc + attachmentLine
       });
       setLd(false);
       if (error) {
@@ -232,9 +248,18 @@ const DisputeModal = ({ tx, onClose, onSubmit }) => {
 
                 <div>
                   <div style={{ fontSize:13, fontWeight:600, color:"#44474e", marginBottom:8 }}>Upload Evidence (optional)</div>
+                  {/* Hidden real file input — triggered by clicking the drop zone */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*,.pdf,.txt,.doc,.docx,.zip"
+                    style={{ display:"none" }}
+                    onChange={handleFileChange}
+                  />
                   <div
                     style={{ border:"2px dashed #c5c6cf", borderRadius:10, padding:"20px", textAlign:"center", cursor:"pointer", background:"#f5f3f6" }}
-                    onClick={() => { const names=["screenshot.png","contract.pdf","chat_export.txt"]; setFiles(p => p.length < 3 ? [...p, names[p.length]] : p); }}
+                    onClick={() => fileInputRef.current?.click()}
                   >
                     <span className="msym" style={{ fontSize:28, color:"#75777f", display:"block", marginBottom:6 }}>attach_file</span>
                     <div style={{ fontSize:13, fontWeight:600, color:"#001637", marginBottom:3 }}>Click to attach files</div>
@@ -243,7 +268,7 @@ const DisputeModal = ({ tx, onClose, onSubmit }) => {
                   {files.length > 0 && (
                     <div style={{ marginTop:10, display:"flex", flexWrap:"wrap", gap:7 }}>
                       {files.map((f, i) => (
-                        <span key={i} style={{ fontSize:12, background:"#f5f3f6", border:"1px solid #e4e2e5", borderRadius:6, padding:"4px 10px", color:"#001637", fontWeight:500 }}>📎 {f}</span>
+                        <span key={i} style={{ fontSize:12, background:"#f5f3f6", border:"1px solid #e4e2e5", borderRadius:6, padding:"4px 10px", color:"#001637", fontWeight:500 }}>📎 {f.name}</span>
                       ))}
                     </div>
                   )}

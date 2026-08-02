@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { CSS } from "./tokens";
 import { auth, clearToken } from "./utils/api";
 
@@ -18,8 +18,15 @@ import AdminPanel from "./components/dashboard/AdminPanel";
 const TRANSIENT = ["splash", "otp"];
 
 export default function App() {
+  const [resetToken, setResetToken] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("reset_token") || null;
+  });
+
   const [page, setPage] = useState(() => {
     try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("reset_token")) return "reset";
       const s = sessionStorage.getItem("vp_page");
       if (s && !TRANSIENT.includes(s)) return s;
     } catch (error) {
@@ -39,7 +46,14 @@ export default function App() {
   });
 
   const [pendingUser, setPendingUser] = useState(null);
-  const [resetToken, setResetToken] = useState(null);
+
+  useEffect(() => {
+    // Clean URL if reset_token query parameter was present
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("reset_token")) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   useEffect(() => {
     const restoreSession = async () => {
@@ -56,16 +70,6 @@ export default function App() {
     };
 
     restoreSession();
-
-    // Detect password-reset link: ?reset_token=...&reset_email=...
-    const params = new URLSearchParams(window.location.search);
-    const rt = params.get("reset_token");
-    if (rt) {
-      setResetToken(rt);
-      // Clean the URL so the token isn't visible or reused
-      window.history.replaceState({}, document.title, window.location.pathname);
-      setPage("reset");
-    }
   }, [user]);
 
   useEffect(() => {
@@ -88,25 +92,31 @@ export default function App() {
   const navigate = (p) => {
     setPage(p);
     window.scrollTo(0, 0);
+    if (userRef.current) {
+      window.history.pushState({ spa: true }, "", window.location.href);
+    }
   };
 
   // ── Back-button guard ──────────────────────────────────────────
-  // When a user is logged in, intercept every popstate (browser Back/Forward)
-  // and immediately re-push the current state, keeping them on the dashboard.
+  const userRef = useRef(user);
   useEffect(() => {
-    if (!user) return; // only active while authenticated
+    userRef.current = user;
+    if (user) {
+      window.history.pushState({ spa: true }, "", window.location.href);
+    }
+  }, [user]);
 
-    // Push a sentinel entry so there is always something to intercept.
-    window.history.pushState({ spa: true }, "");
-
+  useEffect(() => {
     const handlePop = () => {
-      // Re-push so the browser "back" entry is never consumed.
-      window.history.pushState({ spa: true }, "");
+      if (userRef.current) {
+        window.history.pushState({ spa: true }, "", window.location.href);
+        setPage("dashboard");
+      }
     };
 
     window.addEventListener("popstate", handlePop);
     return () => window.removeEventListener("popstate", handlePop);
-  }, [user]);
+  }, []);
   // ──────────────────────────────────────────────────────────────
 
   const onLoginSuccess = (u) => {
