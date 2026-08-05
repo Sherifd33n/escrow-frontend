@@ -7,7 +7,7 @@
  * On failure: data = null, error = string message
  */
 
-const BASE = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
+const BASE = (import.meta.env.VITE_API_URL || "http://localhost:4000/api").replace(/\/+$/, "");
 
 // Multipart form-data wrapper (for file uploads)
 async function requestMultipart(method, path, formData) {
@@ -191,12 +191,13 @@ export const transactions = {
 
   getDispute: (id) => get(`/transactions/${id}/dispute`),
 
-  resolveDispute: (id, data) => patch(`/transactions/${id}/dispute/resolve`, data),
+  resolveDispute: (id, data) =>
+    patch(`/transactions/${id}/dispute/resolve`, data),
 
   getHistory: (id) => get(`/transactions/${id}/history`),
 
   submitReview: (id, data) => post(`/transactions/${id}/review`, data),
- 
+
   getReviews: (id) => get(`/transactions/${id}/review`),
 };
 
