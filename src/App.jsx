@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { CSS } from "./tokens";
 import { auth, clearToken } from "./utils/api";
 import { useSSE } from "./utils/useSSE";
+import { usePushNotifications } from "./utils/usePushNotifications";
 
 import SplashScreen from "./components/SplashScreen";
 import HomePage from "./pages/HomePage";
@@ -19,7 +20,7 @@ import AdminPanel from "./components/dashboard/AdminPanel";
 const TRANSIENT = ["splash", "otp"];
 
 export default function App() {
-  const [resetToken, setResetToken] = useState(() => {
+  const [resetToken] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get("reset_token") || null;
   });
@@ -50,6 +51,9 @@ export default function App() {
 
   // ── SSE: connect once per logged-in user ──────────────────────────────────
   useSSE(user);
+
+  // ── WebPush: Register Service Worker and subscribe user for background push notifications
+  usePushNotifications(user);
 
   useEffect(() => {
     // Clean URL if reset_token query parameter was present
