@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { T } from "../../tokens";
-import { Btn, Badge, StatusBadge as SB } from "../../components/ui";
+import { T, fs } from "../../tokens";
+import { Btn, Badge, StatusBadge as SB, EvidenceViewer } from "../../components/ui";
 import { MTX, CATS } from "../../data/constants";
 import { users, admin, transactions } from "../../utils/api";
+import { sseEmitter } from "../../utils/useSSE";
 
 const AdminPanel = ({ onBack, onLogout }) => {
   const handleExit = onBack || onLogout;
@@ -148,6 +149,15 @@ const AdminPanel = ({ onBack, onLogout }) => {
     }
   }, [tab]);
 
+  // ── SSE: auto-refresh admin data on relevant events ───────────────────────
+  useEffect(() => {
+    const offKyc  = sseEmitter.on("kyc_update",         loadKYCQueue);
+    const offDisp = sseEmitter.on("dispute_update",     () => { loadDisputes(); loadDashboard(); });
+    const offTx   = sseEmitter.on("transaction_update", () => { loadPlatformTransactions(); loadDashboard(); });
+    const offRev  = sseEmitter.on("review_update",      loadAdminReviews);
+    return () => { offKyc(); offDisp(); offTx(); offRev(); };
+  }, []);
+
   // ─── ACTION HANDLERS ────────────────────────────────────────────────────────
 
   const handleApprove = (id) => {
@@ -275,10 +285,8 @@ const AdminPanel = ({ onBack, onLogout }) => {
                   </div>
 
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: T.gray400, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 4 }}>Evidence / Description</div>
-                    <div style={{ fontSize: 13.5, color: T.gray700, background: T.offWhite, padding: 12, borderRadius: 8, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-                      {d.evidence || "No evidence uploaded."}
-                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: T.gray400, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 }}>Evidence / Description</div>
+                    <EvidenceViewer evidence={d.evidence} />
                   </div>
 
                   {d.status === "resolved" && (

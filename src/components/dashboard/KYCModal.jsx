@@ -210,6 +210,8 @@ const KYC = ({ user, onClose, onComplete }) => {
   const h = (k) => (e) => setFm((p) => ({ ...p, [k]: e.target.value }));
   const total = fm.biz ? 3 : 2;
 
+  const [rejectionReason, setRejectionReason] = useState("");
+
   // Load current status on mount
   useEffect(() => {
     users.getKYCStatus().then(({ data, error }) => {
@@ -219,6 +221,9 @@ const KYC = ({ user, onClose, onComplete }) => {
           setKycState("review");
         } else if (data.status === "rejected") {
           setKycState("rejected");
+          if (data.rejection_reason) setRejectionReason(data.rejection_reason);
+        } else if (data.status === "approved" || data.tier > 1) {
+          setKycState("approved");
         } else {
           setKycState("form");
         }
@@ -353,6 +358,54 @@ const KYC = ({ user, onClose, onComplete }) => {
           margin: "auto",
         }}
       >
+        {/* ═══ APPROVED STATE ═══ */}
+        {kycState === "approved" && (
+          <div style={{ padding: "40px 30px", textAlign: "center" }}>
+            <div
+              style={{
+                width: 64,
+                height: 64,
+                background: T.greenLt,
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 18px",
+              }}
+            >
+              <span className="msym" style={{ fontSize: 34, color: T.green }}>
+                verified
+              </span>
+            </div>
+            <div
+              style={{
+                fontWeight: 700,
+                fontSize: 18,
+                color: T.primary,
+                marginBottom: 6,
+              }}
+            >
+              Identity Verified
+            </div>
+            <p
+              style={{
+                fontSize: 13.5,
+                color: T.gray500,
+                lineHeight: 1.7,
+                marginBottom: 24,
+              }}
+            >
+              Your government ID and identity details have been approved by the admin.
+              Your account is verified.
+            </p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              <Btn variant="primary" onClick={onClose}>
+                Close
+              </Btn>
+            </div>
+          </div>
+        )}
+
         {/* ═══ REJECTED STATE ═══ */}
         {kycState === "rejected" && (
           <div style={{ padding: "40px 30px", textAlign: "center" }}>
@@ -364,7 +417,7 @@ const KYC = ({ user, onClose, onComplete }) => {
                 borderRadius: "50%",
                 display: "flex",
                 alignItems: "center",
-                justifyCenter: "center",
+                justifyContent: "center",
                 margin: "0 auto 18px",
               }}
             >
@@ -387,20 +440,37 @@ const KYC = ({ user, onClose, onComplete }) => {
                 fontSize: 13.5,
                 color: T.gray500,
                 lineHeight: 1.7,
-                marginBottom: 24,
+                marginBottom: 16,
               }}
             >
-              Your submitted documents could not be verified. Common reasons:
-              blurry image, expired ID, or mismatched details. Please try again
-              with clearer documents.
+              Your submitted documents were rejected by the administrator.
             </p>
-            <div style={{ display: "flex", gap: 10, justifyCenter: "center" }}>
+            {rejectionReason && (
+              <div
+                style={{
+                  background: "#fff5f5",
+                  border: "1px solid #fecaca",
+                  borderRadius: 10,
+                  padding: "12px 16px",
+                  fontSize: 13,
+                  color: "#dc2626",
+                  marginBottom: 20,
+                  textAlign: "left",
+                }}
+              >
+                <strong>Reason:</strong> {rejectionReason}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
               <Btn variant="outline" onClick={onClose}>
                 Close
               </Btn>
               <Btn
                 variant="primary"
-                onClick={() => {
+                onClick={async () => {
+                  setLd(true);
+                  await users.resetKYC();
+                  setLd(false);
                   setKycState("form");
                   setStep(1);
                 }}
@@ -474,24 +544,6 @@ const KYC = ({ user, onClose, onComplete }) => {
             <div style={{ display: "flex", gap: 10, justifyCenter: "center" }}>
               <Btn variant="outline" onClick={onClose}>
                 Close
-              </Btn>
-              {/* Demo helper — simulate admin approving */}
-              <Btn
-                variant="primary"
-                disabled={ld}
-                onClick={async () => {
-                  setLd(true);
-                  const targetTier = fm.biz ? 3 : 2;
-                  const { error } = await users.updateKYC(targetTier);
-                  setLd(false);
-                  if (error) {
-                    alert(error);
-                    return;
-                  }
-                  if (onComplete) onComplete(targetTier);
-                }}
-              >
-                {ld ? <Spin /> : "Simulate Approval"}
               </Btn>
             </div>
           </div>

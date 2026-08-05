@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { T, fs } from "../../tokens";
 import { SCFG } from "../../data/constants";
 
@@ -92,6 +93,110 @@ export const StatusBadge = ({ status }) => {
       <span style={{ width:6, height:6, borderRadius:"50%", background:c.dot, display:"inline-block" }}/>
       {c.label}
     </span>
+  );
+};
+
+export const EvidenceViewer = ({ evidence }) => {
+  const [activeImage, setActiveImage] = useState(null);
+
+  if (!evidence) {
+    return <div style={{ fontSize: 13.5, color: T.gray500, fontStyle: "italic" }}>No evidence uploaded.</div>;
+  }
+
+  let text = evidence;
+  let images = [];
+  let files = [];
+
+  if (typeof evidence === "string" && evidence.trim().startsWith("{") && evidence.trim().endsWith("}")) {
+    try {
+      const parsed = JSON.parse(evidence);
+      text = parsed.text || "";
+      images = parsed.images || [];
+      files = parsed.files || [];
+    } catch (e) {
+      text = evidence;
+    }
+  }
+
+  return (
+    <div>
+      {/* Evidence text description */}
+      <div style={{ fontSize: 13.5, color: T.gray700, background: T.offWhite, padding: 12, borderRadius: 8, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+        {text || "No description provided."}
+      </div>
+
+      {/* Evidence Images */}
+      {images.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: T.gray400, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8 }}>
+            Attached Evidence Images ({images.length})
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 10 }}>
+            {images.map((img, i) => (
+              <div
+                key={i}
+                onClick={() => setActiveImage(img.data || img.url || img)}
+                style={{
+                  border: `1.5px solid ${T.gray100}`,
+                  borderRadius: 10,
+                  overflow: "hidden",
+                  cursor: "pointer",
+                  background: T.white,
+                  transition: "all .15s ease",
+                  boxShadow: "0 2px 6px rgba(0,0,0,.04)"
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                  e.currentTarget.style.boxShadow = "0 6px 16px rgba(0,0,0,.12)";
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 2px 6px rgba(0,0,0,.04)";
+                }}
+              >
+                <img
+                  src={img.data || img.url || img}
+                  alt={img.name || `evidence-${i}`}
+                  style={{ width: "100%", height: 95, objectFit: "cover", display: "block" }}
+                />
+                <div style={{ padding: "6px 8px", fontSize: 11, fontWeight: 600, color: T.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", background: T.offWhite }}>
+                  📷 {img.name || `Image ${i + 1}`}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Non-Image Attachments */}
+      {files.length > 0 && (
+        <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {files.map((f, i) => (
+            <span key={i} style={{ fontSize: 12, background: T.offWhite, border: `1px solid ${T.gray100}`, borderRadius: 6, padding: "4px 10px", color: T.primary, fontWeight: 500 }}>
+              📎 {f.name}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Image Lightbox Modal */}
+      {activeImage && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, backdropFilter: "blur(4px)" }}
+          onClick={() => setActiveImage(null)}
+        >
+          <div style={{ position: "relative", maxWidth: "90vw", maxHeight: "90vh", display: "flex", flexDirection: "column", alignItems: "center" }} onClick={e => e.stopPropagation()}>
+            <img src={activeImage} alt="Evidence full preview" style={{ maxWidth: "100%", maxHeight: "85vh", borderRadius: 12, boxShadow: "0 20px 50px rgba(0,0,0,.6)", objectFit: "contain" }} />
+            <button
+              onClick={() => setActiveImage(null)}
+              style={{ position: "absolute", top: -16, right: -16, background: T.white, color: T.primary, border: "none", borderRadius: "50%", width: 36, height: 36, fontSize: 18, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 12px rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center" }}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

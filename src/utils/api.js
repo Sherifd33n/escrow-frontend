@@ -269,6 +269,8 @@ export const users = {
 
   getKYCStatus: () => get("/users/kyc/status"),
 
+  resetKYC: () => post("/users/kyc/reset"),
+
   getKYCQueue: () => get("/users/kyc/queue"),
 
   approveKYC: (id) => patch(`/users/kyc/approve/${id}`),

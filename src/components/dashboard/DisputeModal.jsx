@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { T, fs } from "../../tokens";
-import { Btn, Spin } from "../../components/ui";
+import { Btn, Spin, EvidenceViewer } from "../../components/ui";
 import { transactions } from "../../utils/api";
 
 const F = ({ label, req, children }) => (
@@ -16,6 +16,7 @@ const DisputeModal = ({ tx, onClose, onSubmit }) => {
   const [reason, setReason] = useState("");
   const [desc,   setDesc]   = useState("");
   const [files,  setFiles]  = useState([]);
+  const [isDragging, setIsDragging] = useState(false);
   const [ld,     setLd]     = useState(false);
   const [summ,   setSumm]   = useState("");
   const [done,   setDone]   = useState(false);
@@ -45,16 +46,77 @@ const DisputeModal = ({ tx, onClose, onSubmit }) => {
     }
   }, [tx]);
 
-  const handleFileChange = (e) => {
-    const picked = Array.from(e.target.files || []);
-    if (!picked.length) return;
-    setFiles(prev => {
-      const existing = new Set(prev.map(f => f.name));
-      const added = picked.filter(f => !existing.has(f.name));
-      return [...prev, ...added].slice(0, 5); // cap at 5 files
+  const compressImage = (file, maxWidth = 1200, quality = 0.75) =>
+    new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const scale = Math.min(1, maxWidth / img.width);
+        const canvas = document.createElement("canvas");
+        canvas.width  = img.width  * scale;
+        canvas.height = img.height * scale;
+        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+      img.src = url;
     });
-    // reset input so the same file can be re-picked after removal
+
+  const processFiles = (fileList) => {
+    const picked = Array.from(fileList || []);
+    if (!picked.length) return;
+
+    picked.forEach((file) => {
+      if (file.type.startsWith("image/")) {
+        compressImage(file).then((data) => {
+          if (!data) return;
+          setFiles((prev) => {
+            const exists = prev.some((f) => f.name === file.name);
+            if (exists) return prev;
+            return [
+              ...prev,
+              { file, name: file.name, type: "image", data },
+            ].slice(0, 5);
+          });
+        });
+      } else {
+        setFiles((prev) => {
+          const exists = prev.some((f) => f.name === file.name);
+          if (exists) return prev;
+          return [
+            ...prev,
+            { file, name: file.name, type: "file" },
+          ].slice(0, 5);
+        });
+      }
+    });
+  };
+
+  const handleFileChange = (e) => {
+    processFiles(e.target.files);
     e.target.value = "";
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFiles(e.dataTransfer.files);
+    }
   };
 
   const sub = async () => {
@@ -62,12 +124,21 @@ const DisputeModal = ({ tx, onClose, onSubmit }) => {
     setLd(true);
     setErr("");
     try {
-      const attachmentLine = files.length
-        ? `\n\nAttachments: ${files.map(f => f.name).join(", ")}`
-        : "";
+      const imagesList = files.filter(f => f.type === "image").map(f => ({ name: f.name, data: f.data }));
+      const filesList  = files.filter(f => f.type !== "image").map(f => ({ name: f.name }));
+
+      let finalEvidence = desc;
+      if (imagesList.length > 0 || filesList.length > 0) {
+        finalEvidence = JSON.stringify({
+          text: desc,
+          images: imagesList,
+          files: filesList
+        });
+      }
+
       const { data, error } = await transactions.fileDispute(tx.id, {
         reason,
-        evidence: desc + attachmentLine
+        evidence: finalEvidence
       });
       setLd(false);
       if (error) {
@@ -76,7 +147,7 @@ const DisputeModal = ({ tx, onClose, onSubmit }) => {
         setSumm(
           `A dispute has been filed for "${tx.title}". The client reports: ${reason.toLowerCase()}. ` +
           `Both parties have been notified and escrow funds are now frozen. ` +
-          `A Dispute Resolution Officer will review all communications and deliverables and issue a binding decision within 5 business days.`
+          `A Dispute Resolution Officer will review all communications, evidence images, and deliverables to issue a binding decision within 5 business days.`
         );
         setDone(true);
         onSubmit();
@@ -153,8 +224,8 @@ const DisputeModal = ({ tx, onClose, onSubmit }) => {
             </div>
 
             <div>
-              <div style={{ fontSize:11, fontWeight:700, color:T.gray400, textTransform:"uppercase", letterSpacing:".06em", marginBottom:4 }}>Evidence / Description</div>
-              <div style={{ fontSize:13.5, color:T.gray700, background:T.offWhite, padding:12, borderRadius:8, whiteSpace:"pre-wrap", lineHeight:1.6 }}>{existingDispute.evidence || "No evidence uploaded."}</div>
+              <div style={{ fontSize:11, fontWeight:700, color:T.gray400, textTransform:"uppercase", letterSpacing:".06em", marginBottom:6 }}>Evidence / Description</div>
+              <EvidenceViewer evidence={existingDispute.evidence} />
             </div>
 
             <div>
@@ -258,17 +329,90 @@ const DisputeModal = ({ tx, onClose, onSubmit }) => {
                     onChange={handleFileChange}
                   />
                   <div
-                    style={{ border:"2px dashed #c5c6cf", borderRadius:10, padding:"20px", textAlign:"center", cursor:"pointer", background:"#f5f3f6" }}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
                     onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      border: `2px dashed ${isDragging ? "#dc2626" : "#c5c6cf"}`,
+                      borderRadius: 12,
+                      padding: "22px 18px",
+                      textAlign: "center",
+                      cursor: "pointer",
+                      background: isDragging ? "#fff5f5" : "#f5f3f6",
+                      transition: "all .2s ease",
+                    }}
                   >
-                    <span className="msym" style={{ fontSize:28, color:"#75777f", display:"block", marginBottom:6 }}>attach_file</span>
-                    <div style={{ fontSize:13, fontWeight:600, color:"#001637", marginBottom:3 }}>Click to attach files</div>
-                    <div style={{ fontSize:12, color:"#75777f" }}>Screenshots, contracts, code links, chat exports</div>
+                    <span className="msym" style={{ fontSize: 32, color: isDragging ? "#dc2626" : "#75777f", display: "block", marginBottom: 6 }}>
+                      cloud_upload
+                    </span>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: "#001637", marginBottom: 3 }}>
+                      Drag & Drop screenshots or evidence image here
+                    </div>
+                    <div style={{ fontSize: 12, color: "#75777f" }}>
+                      or click to browse from device (JPG, PNG, PDF, ZIP — max 5 files)
+                    </div>
                   </div>
+
                   {files.length > 0 && (
-                    <div style={{ marginTop:10, display:"flex", flexWrap:"wrap", gap:7 }}>
+                    <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 10 }}>
                       {files.map((f, i) => (
-                        <span key={i} style={{ fontSize:12, background:"#f5f3f6", border:"1px solid #e4e2e5", borderRadius:6, padding:"4px 10px", color:"#001637", fontWeight:500 }}>📎 {f.name}</span>
+                        <div
+                          key={i}
+                          style={{
+                            position: "relative",
+                            border: "1.5px solid #e4e2e5",
+                            borderRadius: 10,
+                            padding: f.type === "image" ? 4 : "8px 12px",
+                            background: "#fff",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            maxWidth: 170,
+                            boxShadow: "0 2px 6px rgba(0,0,0,.04)",
+                          }}
+                        >
+                          {f.type === "image" && f.data ? (
+                            <img
+                              src={f.data}
+                              alt={f.name}
+                              style={{ width: 44, height: 44, borderRadius: 6, objectFit: "cover", flexShrink: 0 }}
+                            />
+                          ) : (
+                            <span className="msym" style={{ fontSize: 22, color: "#75777f" }}>
+                              description
+                            </span>
+                          )}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: "#001637", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {f.name}
+                            </div>
+                            <div style={{ fontSize: 10.5, color: "#006c47", fontWeight: 600 }}>Attached</div>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setFiles((prev) => prev.filter((_, idx) => idx !== i));
+                            }}
+                            style={{
+                              background: "#fee2e2",
+                              border: "none",
+                              borderRadius: "50%",
+                              width: 20,
+                              height: 20,
+                              color: "#dc2626",
+                              cursor: "pointer",
+                              fontSize: 11,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              padding: 0,
+                              flexShrink: 0,
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
                       ))}
                     </div>
                   )}

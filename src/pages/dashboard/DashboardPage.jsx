@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { T, fs } from "../../tokens";
-import { Btn, Badge, Spin, StatusBadge as SB, FormField as F } from "../../components/ui";
-import { CATS, CURR, SCFG, MTX } from "../../data/constants";
+import { Btn, StatusBadge as SB, FormField as F } from "../../components/ui";
+import { CATS, CURR, MTX } from "../../data/constants";
+import { users } from "../../utils/api";
 import KYC from "../../components/dashboard/KYCModal";
 import PhoneVerifyModal from "../../components/dashboard/PhoneVerifyModal";
 import ScopeModal from "../../components/dashboard/ScopeModal";
@@ -26,8 +27,26 @@ const Dashboard=({user,onLogout,navigate})=>{
     {from:"Devcraft Solutions",text:"Development underway. Submitting first milestone Friday.",time:"May 16, 2:30 PM"},
     {from:"You",text:"Great, looking forward to it.",time:"May 16, 3:00 PM"},
   ]);
-  const [kycDone,setKycDone]=useState(false);
+  const [kycStatus,setKycStatus]=useState("none");
   const [showKYC,setShowKYC]=useState(false);
+
+  useEffect(() => {
+    if (user) {
+      users.getKYCStatus().then(({ data }) => {
+        if (data) {
+          if (data.status === "approved" || data.tier > 1) {
+            setKycStatus("approved");
+          } else if (data.status === "pending") {
+            setKycStatus("pending");
+          } else if (data.status === "rejected") {
+            setKycStatus("rejected");
+          } else {
+            setKycStatus("none");
+          }
+        }
+      }).catch(() => {});
+    }
+  }, [user, showKYC]);
   const [phoneDone,setPhoneDone]=useState(false);
   const [phoneNumber,setPhoneNumber]=useState("");
   const [showPhoneVerify,setShowPhoneVerify]=useState(false);
@@ -106,7 +125,7 @@ const Dashboard=({user,onLogout,navigate})=>{
             <span style={{color:"#006c47"}}>Escrow</span>
           </span>
           <div className="dash-tabs" style={{display:"flex",gap:0,marginLeft:6,overflow:"hidden"}}>
-            {TABS.map(([k,_,l])=>(
+            {TABS.map(([k,,l])=>(
               <button key={k} onClick={()=>switchTab(k)} style={{background:"none",border:"none",cursor:"pointer",padding:"8px 12px",fontSize:13,fontWeight:600,color:tab===k?"#001637":"#44474e",borderBottom:tab===k?"2px solid #001637":"2px solid transparent",transition:"all .15s",whiteSpace:"nowrap"}}>{l}</button>
             ))}
           </div>
@@ -307,17 +326,21 @@ const Dashboard=({user,onLogout,navigate})=>{
             <p style={{color:T.gray500,fontSize:13.5,marginBottom:22}}>Complete verification to unlock higher transaction limits and build trust with counterparties.</p>
             <div className="g3-dash" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:22}}>
               {[
-                {icon:"mail",       title:"Email Verification",    done:true,      desc:"Required for all accounts.",                       action:null},
-                {icon:"smartphone", title:"Phone Verification",    done:phoneDone, desc:phoneDone?phoneNumber:"Add and verify your phone number.", action:()=>setShowPhoneVerify(true)},
-                {icon:"badge",      title:"Identity Verification", done:kycDone,   desc:"Government ID (Passport, Licence, NIN).",          action:()=>setShowKYC(true)},
+                {icon:"mail",       title:"Email Verification",    status:"approved", desc:"Required for all accounts.", action:null},
+                {icon:"smartphone", title:"Phone Verification",    status:phoneDone ? "approved" : "none", desc:phoneDone?phoneNumber:"Add and verify your phone number.", action:()=>setShowPhoneVerify(true)},
+                {icon:"badge",      title:"Identity Verification", status:kycStatus, desc:kycStatus === "pending" ? "Submitted — awaiting admin review" : kycStatus === "rejected" ? "Rejected — please try again" : "Government ID (Passport, Licence, NIN).", action:()=>setShowKYC(true)},
               ].map(v=>(
-                <div key={v.title} style={{border:"1.5px solid "+(v.done?T.green:T.gray100),borderRadius:12,padding:"15px",display:"flex",gap:12,alignItems:"flex-start"}}>
-                  <span className="msym" style={{fontSize:22,color:v.done?T.green:T.gray400,flexShrink:0,marginTop:1}}>{v.icon}</span>
+                <div key={v.title} style={{border:"1.5px solid "+(v.status==="approved"?T.green:v.status==="pending"?"#d97706":v.status==="rejected"?T.red:T.gray100),borderRadius:12,padding:"15px",display:"flex",gap:12,alignItems:"flex-start"}}>
+                  <span className="msym" style={{fontSize:22,color:v.status==="approved"?T.green:v.status==="pending"?"#d97706":v.status==="rejected"?T.red:T.gray400,flexShrink:0,marginTop:1}}>{v.icon}</span>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontWeight:700,fontSize:13.5,color:T.primary,marginBottom:3}}>{v.title}</div>
                     <div style={{fontSize:12,color:T.gray500,marginBottom:9,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.desc}</div>
-                    {v.done
+                    {v.status === "approved"
                       ?<span style={{fontSize:11.5,fontWeight:700,color:T.green,background:T.greenLt,padding:"3px 10px",borderRadius:20,display:"inline-flex",alignItems:"center",gap:4}}><span className="msym" style={{fontSize:13}}>check_circle</span>Verified</span>
+                      :v.status === "pending"
+                      ?<span style={{fontSize:11.5,fontWeight:700,color:"#d97706",background:"#fffbe6",border:"1px solid #fef08a",padding:"3px 10px",borderRadius:20,display:"inline-flex",alignItems:"center",gap:4}}>⏳ Pending Review</span>
+                      :v.status === "rejected"
+                      ?<Btn variant="outline" style={{fontSize:12,padding:"6px 12px",color:T.red,borderColor:T.red}} onClick={v.action}>Try Again</Btn>
                       :<Btn variant="outline" style={{fontSize:12,padding:"6px 12px"}} onClick={v.action}>Verify Now</Btn>
                     }
                   </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { CSS } from "./tokens";
 import { auth, clearToken } from "./utils/api";
+import { useSSE } from "./utils/useSSE";
 
 import SplashScreen from "./components/SplashScreen";
 import HomePage from "./pages/HomePage";
@@ -46,6 +47,9 @@ export default function App() {
   });
 
   const [pendingUser, setPendingUser] = useState(null);
+
+  // ── SSE: connect once per logged-in user ──────────────────────────────────
+  useSSE(user);
 
   useEffect(() => {
     // Clean URL if reset_token query parameter was present

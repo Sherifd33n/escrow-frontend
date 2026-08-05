@@ -11,6 +11,7 @@ import KYC from "../../components/dashboard/KYCModal";
 import PhoneVerifyModal from "../../components/dashboard/PhoneVerifyModal";
 import ReviewModal from "../../components/dashboard/ReviewModal";
 import { users, transactions, wallet } from "../../utils/api";
+import { sseEmitter } from "../../utils/useSSE";
 
 const VENDOR_TABS = [
   ["overview",     "home",                   "Overview"],
@@ -59,6 +60,31 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
     }
   };
 
+  const [kycStatus, setKycStatus] = useState(
+    user?.kyc_tier > 1 || user?.is_verified ? "approved" : "none"
+  );
+
+  const checkKYC = async () => {
+    try {
+      const { data } = await users.getKYCStatus();
+      if (data) {
+        if (data.status === "approved" || data.tier > 1) {
+          setKycStatus("approved");
+          setKycDone(true);
+        } else if (data.status === "pending") {
+          setKycStatus("pending");
+          setKycDone(false);
+        } else if (data.status === "rejected") {
+          setKycStatus("rejected");
+          setKycDone(false);
+        } else {
+          setKycStatus("none");
+          setKycDone(false);
+        }
+      }
+    } catch (e) {}
+  };
+
   useEffect(() => {
     fetchDashboardData();
   }, []);
@@ -66,9 +92,18 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
   useEffect(() => {
     if (user) {
       setPhoneDone(!!user.phone && !!user.phone_verified);
-      setKycDone(user.kyc_tier > 1);
+      checkKYC();
     }
-  }, [user]);
+  }, [user, showKYC]);
+
+  // ── SSE: auto-refresh on server-side events ──────────────────────────────
+  useEffect(() => {
+    const offTx     = sseEmitter.on("transaction_update", fetchDashboardData);
+    const offWallet = sseEmitter.on("wallet_update",      () => wallet.get().then(r => { if (r.data) setWalletBalance(parseFloat(r.data.balance) || 0); }));
+    const offKyc    = sseEmitter.on("kyc_update",         checkKYC);
+    const offDisp   = sseEmitter.on("dispute_update",     fetchDashboardData);
+    return () => { offTx(); offWallet(); offKyc(); offDisp(); };
+  }, []);
 
   const switchTab = k => { 
     setTab(k); 
@@ -405,23 +440,38 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
             <h2 style={{ fontSize:"clamp(18px,3vw,22px)", fontWeight:700, color:"#001637", marginBottom:6 }}>Service Provider Verification</h2>
             <p style={{ color:"#75777f", fontSize:13.5, marginBottom:20 }}>Verified vendors get priority placement and higher payout limits.</p>
             {[
-              { label:"Email Verified",  icon:"mail",  done:true, action:null },
-              { label:"Phone Number",    icon:"phone", done:phoneDone, action:() => setShowPhoneVerify(true) },
-              { label:"Business Profile",icon:"business", done:!!user?.kyc_tier && user.kyc_tier >= 3, action:() => setShowKYC(true) },
-              { label:"Government ID",   icon:"badge", done:kycDone, action:() => setShowKYC(true) },
-              { label:"Portfolio Link",  icon:"link",  done:false, action:() => {} },
+              { label:"Email Verified",  icon:"mail",     status:"approved", action:null },
+              { label:"Phone Number",    icon:"phone",    status:phoneDone ? "approved" : "none", action:() => setShowPhoneVerify(true) },
+              { label:"Business Profile",icon:"business", status:user?.kyc_tier >= 3 ? "approved" : kycStatus === "pending" ? "pending" : kycStatus === "rejected" ? "rejected" : "none", action:() => setShowKYC(true) },
+              { label:"Government ID",   icon:"badge",    status:kycStatus, action:() => setShowKYC(true) },
+              { label:"Portfolio Link",  icon:"link",     status:"none", action:() => {} },
             ].map(v => (
               <div key={v.label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"16px 18px", background:"#f9f9fb", borderRadius:12, border:"1px solid #e9e7eb", marginBottom:10 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                  <div style={{ width:40, height:40, borderRadius:10, background:v.done?"#f0fdf4":"#f5f3f6", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                    <span className="msym" style={{ fontSize:20, color:v.done?"#006c47":"#75777f" }}>{v.icon}</span>
+                  <div style={{ width:40, height:40, borderRadius:10, background:v.status==="approved"?"#f0fdf4":v.status==="pending"?"#fffbe6":v.status==="rejected"?"#fff5f5":"#f5f3f6", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    <span className="msym" style={{ fontSize:20, color:v.status==="approved"?"#006c47":v.status==="pending"?"#d97706":v.status==="rejected"?"#dc2626":"#75777f" }}>{v.icon}</span>
                   </div>
-                  <span style={{ fontWeight:600, fontSize:14, color:"#001637" }}>{v.label}</span>
+                  <div>
+                    <span style={{ fontWeight:600, fontSize:14, color:"#001637" }}>{v.label}</span>
+                    {v.status === "pending" && <div style={{ fontSize:11.5, color:"#d97706" }}>Submitted — awaiting admin review</div>}
+                    {v.status === "rejected" && <div style={{ fontSize:11.5, color:"#dc2626" }}>Verification rejected — please try again</div>}
+                  </div>
                 </div>
-                {v.done
-                  ? <span style={{ fontSize:11.5, fontWeight:700, color:"#006c47", background:"#f0fdf4", padding:"3px 10px", borderRadius:20 }}>✓ Verified</span>
-                  : <Btn variant="outline" style={{ fontSize:12, padding:"6px 12px" }} onClick={v.action}>Verify Now</Btn>
-                }
+                {v.status === "approved" ? (
+                  <span style={{ fontSize:11.5, fontWeight:700, color:"#006c47", background:"#f0fdf4", padding:"3px 10px", borderRadius:20 }}>✓ Verified</span>
+                ) : v.status === "pending" ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize:11.5, fontWeight:700, color:"#d97706", background:"#fffbe6", border:"1px solid #fef08a", padding:"3px 10px", borderRadius:20 }}>⏳ Pending</span>
+                    <Btn variant="outline" style={{ fontSize:12, padding:"5px 10px" }} onClick={v.action}>View Status</Btn>
+                  </div>
+                ) : v.status === "rejected" ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize:11.5, fontWeight:700, color:"#dc2626", background:"#fff5f5", border:"1px solid #fecaca", padding:"3px 10px", borderRadius:20 }}>✕ Rejected</span>
+                    <Btn variant="outline" style={{ fontSize:12, padding:"5px 10px" }} onClick={v.action}>Try Again</Btn>
+                  </div>
+                ) : (
+                  <Btn variant="outline" style={{ fontSize:12, padding:"6px 12px" }} onClick={v.action}>Verify Now</Btn>
+                )}
               </div>
             ))}
           </div>
