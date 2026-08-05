@@ -7,7 +7,9 @@
  * On failure: data = null, error = string message
  */
 
-const BASE = (import.meta.env.VITE_API_URL || "http://localhost:4000/api").replace(/\/+$/, "");
+const BASE = (
+  import.meta.env.VITE_API_URL || "http://localhost:4000/api"
+).replace(/\/+$/, "");
 
 // Multipart form-data wrapper (for file uploads)
 async function requestMultipart(method, path, formData) {
@@ -288,3 +290,29 @@ export const users = {
 
   getReviews: (id) => get(`/users/${id}/reviews`),
 };
+
+// ─── REAL-TIME NOTIFICATIONS (SSE) ───────────────────────────────
+export function connectNotificationStream(onNotification) {
+  const token = sessionStorage.getItem("vp_token");
+
+  if (!token) return null;
+
+  const streamUrl = `${BASE}/notifications/stream?token=${encodeURIComponent(token)}`;
+
+  const eventSource = new EventSource(streamUrl);
+
+  eventSource.addEventListener("notification", (event) => {
+    try {
+      const notification = JSON.parse(event.data);
+      onNotification(notification);
+    } catch (err) {
+      console.error("Failed to parse notification:", err);
+    }
+  });
+
+  eventSource.onerror = (err) => {
+    console.error("Notification stream disconnected.", err);
+  };
+
+  return eventSource;
+}

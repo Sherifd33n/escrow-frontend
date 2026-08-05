@@ -163,7 +163,7 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
         <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
           <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:9, padding:"6px 10px", fontSize:13, fontWeight:700, color:"#006c47", whiteSpace:"nowrap" }}>
             <span className="vp-balance-label">Balance: </span>${walletBalance.toLocaleString()}
-            </div>
+        </div>
           <button onClick={onLogout} style={{ display:"inline-flex", alignItems:"center", gap:6, background:"transparent", color:"#dc2626", border:"1px solid #fecaca", borderRadius:9, cursor:"pointer", fontWeight:600, fontSize:13, padding:"8px 12px", whiteSpace:"nowrap", flexShrink:0 }}>
             <span className="msym" style={{ fontSize:16 }}>logout</span>
           </button>
