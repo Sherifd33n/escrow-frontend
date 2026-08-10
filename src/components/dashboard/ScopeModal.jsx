@@ -1,15 +1,21 @@
 import { useState } from "react";
 import { T, fs } from "../../tokens";
-import { Btn, Spin } from "../../components/ui";
+import { Btn, Spin, FormField as F } from "../../components/ui";
+import { ai } from "../../utils/api";
 
 const ScopeModal=({catLabel,onClose,onApply})=>{
   const [desc,setDesc]=useState("");const [ld,setLd]=useState(false);const [res,setRes]=useState(null);
   const gen=async()=>{
     if(!desc.trim())return;setLd(true);
-    try{
-      const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:`You are Escrow's AI Scope Generator for tech services escrow.\nCategory: ${catLabel}\nClient brief: ${desc}\nReturn ONLY valid JSON:\n{"title":"short project title","overview":"2-sentence overview","deliverables":["item1","item2","item3","item4","item5"],"milestones":[{"name":"name","description":"what's delivered","timeline":"e.g. Week 2"}],"acceptance":["criterion1","criterion2","criterion3"],"timeline":"total timeline","revisions":"revision policy"}`}]})});
-      const d=await r.json();const txt=d.content?.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim();setRes(JSON.parse(txt));
-    }catch{setRes({title:"Tech Services Project",overview:"Development project as described, completed per agreed milestones with AI verification.",deliverables:["Core application development","API integrations","Testing & QA","Deployment","Documentation"],milestones:[{name:"Foundation",description:"Core setup and architecture",timeline:"Week 1–2"},{name:"Core Development",description:"Main features",timeline:"Week 3–5"},{name:"Delivery",description:"Testing and deployment",timeline:"Week 6"}],acceptance:["All features work as specified","Code passes automated tests","Documentation complete","Delivered on time"],timeline:"6 weeks",revisions:"2 rounds of revisions per milestone"});}
+    const { data, error } = await ai.generateScope(catLabel, desc.trim());
+    if (error) {
+      alert(error);
+      setLd(false);
+      return;
+    }
+    if (data && data.scope) {
+      setRes(data.scope);
+    }
     setLd(false);
   };
   return(

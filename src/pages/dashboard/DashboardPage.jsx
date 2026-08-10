@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { T, fs } from "../../tokens";
 import { Btn, StatusBadge as SB, FormField as F } from "../../components/ui";
 import { CATS, CURR, MTX } from "../../data/constants";
-import { users } from "../../utils/api";
+import { users, transactions } from "../../utils/api";
 import KYC from "../../components/dashboard/KYCModal";
 import PhoneVerifyModal from "../../components/dashboard/PhoneVerifyModal";
 import ScopeModal from "../../components/dashboard/ScopeModal";
@@ -13,7 +13,7 @@ import AdminPanel from "../../components/dashboard/AdminPanel";
 import SettingsTab from "../../components/dashboard/SettingsTab";
 import WalletTab from "../../components/dashboard/WalletTab";
 
-const Dashboard=({user,onLogout,navigate})=>{
+const Dashboard=({user,onLogout})=>{
   const [tab,setTab]=useState("transactions");
   const [detail,setDetail]=useState(null);
   const [txs,setTxs]=useState(MTX);
@@ -63,9 +63,31 @@ const Dashboard=({user,onLogout,navigate})=>{
   const det=detail?txs.find(t=>t.id===detail.id)||detail:null;
   const switchTab=k=>{setTab(k);setDetail(null);setDrawer(false);};
 
-  const createTx=()=>{
-    const cat=CATS.find(c=>c.id===nf.type);
-    setTxs(p=>[{id:`TXN-${Math.floor(80000+Math.random()*9000)}`,title:nf.title||scope?.title||"New Project",type:cat?.label||"Software Dev",cat:nf.type,amount:parseFloat(nf.amount)||0,currency:nf.currency,role:nf.role==="buyer"?"Buyer":"Seller",other:nf.counterparty||"Counterparty",status:"pending",date:new Date().toLocaleDateString("en",{month:"short",day:"numeric",year:"numeric"}),milestones:parseInt(nf.milestones)||1},...p]);
+  const [submitting,setSubmitting]=useState(false);
+  const createTx=async()=>{
+    if(submitting)return;
+    setSubmitting(true);
+    const { error } = await transactions.create({
+      title: nf.title||scope?.title||"New Project",
+      category: nf.type,
+      amount: parseFloat(nf.amount)||0,
+      currency: nf.currency,
+      counterparty: nf.counterparty,
+      role: nf.role,
+      milestones_count: parseInt(nf.milestones)||1,
+      review_days: parseInt(nf.days)||3
+    });
+    setSubmitting(false);
+    if(error){
+      alert(error);
+      return;
+    }
+    // Refresh transactions from backend
+    const txResult = await transactions.getAll();
+    if(txResult.data){
+      const mapped = txResult.data.map(t=>({...t,id:t.txn_code,title:t.title,type:t.category,amount:parseFloat(t.amount),currency:t.currency,role:t.buyer_id===user.id?"Buyer":"Seller",other:t.buyer_id===user.id?t.seller_email:t.buyer_email,date:new Date(t.created_at).toLocaleDateString("en",{month:"short",day:"numeric",year:"numeric"}),milestones:t.milestones_count}));
+      setTxs(mapped);
+    }
     setShowNew(false);setNs(1);setScope(null);setNf({title:"",type:"software",amount:"",currency:"USD",counterparty:"",role:"buyer",days:"3",milestones:"2"});
   };
 
@@ -328,7 +350,7 @@ const Dashboard=({user,onLogout,navigate})=>{
               {[
                 {icon:"mail",       title:"Email Verification",    status:"approved", desc:"Required for all accounts.", action:null},
                 {icon:"smartphone", title:"Phone Verification",    status:phoneDone ? "approved" : "none", desc:phoneDone?phoneNumber:"Add and verify your phone number.", action:()=>setShowPhoneVerify(true)},
-                {icon:"badge",      title:"Identity Verification", status:kycStatus, desc:kycStatus === "pending" ? "Submitted — awaiting admin review" : kycStatus === "rejected" ? "Rejected — please try again" : "Government ID (Passport, Licence, NIN).", action:()=>setShowKYC(true)},
+                {icon:"badge",      title:"Identity Verification", status:kycStatus, desc:kycStatus === "pending" ? "Submitted — awaiting admin review" : kycStatus === "rejected" ? "Rejected — please try again" : "Government ID (Passport, License, NIN).", action:()=>setShowKYC(true)},
               ].map(v=>(
                 <div key={v.title} style={{border:"1.5px solid "+(v.status==="approved"?T.green:v.status==="pending"?"#d97706":v.status==="rejected"?T.red:T.gray100),borderRadius:12,padding:"15px",display:"flex",gap:12,alignItems:"flex-start"}}>
                   <span className="msym" style={{fontSize:22,color:v.status==="approved"?T.green:v.status==="pending"?"#d97706":v.status==="rejected"?T.red:T.gray400,flexShrink:0,marginTop:1}}>{v.icon}</span>
@@ -519,7 +541,7 @@ const Dashboard=({user,onLogout,navigate})=>{
       )}
 
       {/* Modals */}
-      {showKYC&&<KYC user={user} onClose={()=>setShowKYC(false)} onComplete={()=>{setKycDone(true);setShowKYC(false);}}/>}
+      {showKYC&&<KYC user={user} onClose={()=>setShowKYC(false)} onComplete={()=>{setKycStatus("pending");setShowKYC(false);}}/>}
       {showPhoneVerify&&<PhoneVerifyModal onClose={()=>setShowPhoneVerify(false)} onVerified={(num)=>{setPhoneDone(true);setPhoneNumber(num);setShowPhoneVerify(false);}}/>}
       {showAudit&&<AuditModal tx={showAudit} onClose={()=>setShowAudit(null)} onApprove={()=>setTxs(p=>p.map(t=>t.id===showAudit.id?{...t,status:"approved"}:t))} onRevision={()=>setTxs(p=>p.map(t=>t.id===showAudit.id?{...t,status:"revision"}:t))}/>}
       {showDispute&&<DisputeModal tx={showDispute} onClose={()=>setShowDispute(null)} onSubmit={()=>setTxs(p=>p.map(t=>t.id===showDispute.id?{...t,status:"disputed"}:t))}/>}

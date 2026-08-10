@@ -171,11 +171,22 @@ export const EvidenceViewer = ({ evidence }) => {
       {/* Non-Image Attachments */}
       {files.length > 0 && (
         <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {files.map((f, i) => (
-            <span key={i} style={{ fontSize: 12, background: T.offWhite, border: `1px solid ${T.gray100}`, borderRadius: 6, padding: "4px 10px", color: T.primary, fontWeight: 500 }}>
-              📎 {f.name}
-            </span>
-          ))}
+          {files.map((f, i) =>
+            f.data ? (
+              <a
+                key={i}
+                href={f.data}
+                download={f.name}
+                style={{ fontSize: 12, background: T.offWhite, border: `1px solid ${T.gray100}`, borderRadius: 6, padding: "4px 10px", color: T.primary, fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}
+              >
+                📎 {f.name} (Download)
+              </a>
+            ) : (
+              <span key={i} style={{ fontSize: 12, background: T.offWhite, border: `1px solid ${T.gray100}`, borderRadius: 6, padding: "4px 10px", color: T.primary, fontWeight: 500 }}>
+                📎 {f.name}
+              </span>
+            )
+          )}
         </div>
       )}
 

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PLANS } from "../data/constants";
+import { subscriptions } from "../utils/api";
 
 function PlanCard({ plan, billing, onSubscribe, currentPlan }) {
   const [hovered, setHovered] = useState(false);
@@ -65,7 +66,7 @@ function PlanCard({ plan, billing, onSubscribe, currentPlan }) {
         </div>
         {billing === "annual" && (
           <div style={{ fontSize:12, color:"rgba(255,255,255,.65)", marginTop:4 }}>
-            Billed ${plan.annualPrice * 12}/year
+            Billed ${(plan.annualBilledTotal || plan.annualPrice * 12).toFixed(2)}/year
           </div>
         )}
 
@@ -139,8 +140,34 @@ export default function SubscriptionPage({ navigate, user }) {
   const [billing, setBilling]     = useState("monthly");
   const [currentPlan, setCurrent] = useState(null);
   const [success, setSuccess]     = useState(null);
+  const [loading, setLoading]     = useState(false);
 
-  const handleSubscribe = (plan) => {
+  useEffect(() => {
+    if (user) {
+      subscriptions.getCurrent().then(({ data }) => {
+        if (data && data.subscription) {
+          setCurrent(data.subscription.plan);
+        }
+      }).catch(() => {});
+    }
+  }, [user]);
+
+  const handleSubscribe = async (plan) => {
+    if (!user) {
+      navigate("login");
+      return;
+    }
+    if (currentPlan === plan.id) return;
+
+    setLoading(true);
+    const { data, error } = await subscriptions.upgrade(plan.id, billing, "card");
+    setLoading(false);
+
+    if (error) {
+      alert(error);
+      return;
+    }
+
     setCurrent(plan.id);
     setSuccess(plan);
     setTimeout(() => setSuccess(null), 3000);

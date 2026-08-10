@@ -39,7 +39,8 @@ async function requestMultipart(method, path, formData) {
     if (res.status === 403) {
       return {
         data: null,
-        error: "You don't have permission to perform this action.",
+        error: json.error || "You don't have permission to perform this action.",
+        code: json.code,
       };
     }
 
@@ -100,7 +101,8 @@ async function request(method, path, body, auth = true) {
     if (res.status === 403 && auth) {
       return {
         data: null,
-        error: "You don't have permission to perform this action.",
+        error: json.error || "You don't have permission to perform this action.",
+        code: json.code,
       };
     }
 
@@ -291,6 +293,30 @@ export const users = {
   revokeSession: (id) => del(`/users/sessions/${id}`),
 
   getReviews: (id) => get(`/users/${id}/reviews`),
+};
+
+// ─── SUBSCRIPTIONS ───────────────────────────────────────────────
+export const subscriptions = {
+  getPlans: () => get("/subscriptions/plans", false),
+  getCurrent: () => get("/subscriptions/current"),
+  getEntitlements: () => get("/subscriptions/entitlements"),
+  checkout: (planId, billingCycle) =>
+    post("/subscriptions/checkout", { planId, billingCycle }),
+  upgrade: (planId, billingCycle, paymentProvider, referenceId) =>
+    post("/subscriptions/upgrade", {
+      planId,
+      billingCycle,
+      paymentProvider,
+      referenceId,
+    }),
+  cancel: () => post("/subscriptions/cancel"),
+};
+
+// ─── AI SERVICES ────────────────────────────────────────────────
+export const ai = {
+  generateScope: (categoryLabel, description) =>
+    post("/ai/scope", { categoryLabel, description }),
+  runAudit: (data) => post("/ai/audit", data),
 };
 
 // ─── REAL-TIME NOTIFICATIONS (SSE) ───────────────────────────────

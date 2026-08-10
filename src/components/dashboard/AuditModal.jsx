@@ -1,15 +1,29 @@
 import { useState, useEffect } from "react";
 import { T } from "../../tokens";
 import { Btn, Spin } from "../../components/ui";
+import { ai } from "../../utils/api";
 
 const AuditModal=({tx,onClose,onApprove,onRevision})=>{
   const [ld,setLd]=useState(true);const [res,setRes]=useState(null);
   useEffect(()=>{
     (async()=>{
-      try{
-        const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:`You are Escrow's AI Deliverable Auditor. Analyse this project.\nTransaction: ${tx.id}\nProject: ${tx.title}\nCategory: ${tx.type}\nValue: $${tx.amount?.toLocaleString()} ${tx.currency||"USD"}\nProvider: ${tx.other}\nReturn ONLY valid JSON:\n{"score":0-100,"status":"passed"|"passed_with_notes"|"revision_required","summary":"2-sentence executive summary","risk":"low"|"medium"|"high","riskScore":0-100,"checks":[{"name":"check name","status":"passed"|"warning"|"failed","note":"detail"}],"recommendation":"one clear sentence"}`}]})});
-        const d=await r.json();const txt=d.content?.map(i=>i.text||"").join("").replace(/```json|```/g,"").trim();setRes(JSON.parse(txt));
-      }catch{setRes({score:84,status:"passed_with_notes",summary:"Core deliverables reviewed against scope. Requirements substantially met with minor observations.",risk:"low",riskScore:18,checks:[{name:"Scope Completion",status:"passed",note:"All primary deliverables submitted"},{name:"Code Quality",status:"passed",note:"No critical issues detected"},{name:"Test Coverage",status:"warning",note:"Coverage at 62% — below 70% target"},{name:"Documentation",status:"warning",note:"README missing deployment instructions"},{name:"Security Review",status:"passed",note:"No known vulnerabilities found"},{name:"Deadline Compliance",status:"passed",note:"Submitted within agreed timeline"}],recommendation:"Recommend approval with a note to improve test coverage and deployment docs."});}
+      setLd(true);
+      const { data, error } = await ai.runAudit({
+        transactionId: tx.realId || tx.id,
+        title: tx.title,
+        type: tx.type,
+        amount: tx.amount,
+        currency: tx.currency,
+        counterparty: tx.other,
+      });
+      if (error) {
+        alert(error);
+        onClose();
+        return;
+      }
+      if (data && data.audit) {
+        setRes(data.audit);
+      }
       setLd(false);
     })();
   },[]);

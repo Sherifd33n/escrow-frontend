@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { T } from "../tokens";
 import { PLANS, DIGITAL_SERVICES, CATS } from "../data/constants";
+import { subscriptions } from "../utils/api";
 
 // ─── Subscription Card (Fintech style) ───────────────────────────────────────
 function PlanCard({ plan, billing, onSubscribe, currentPlan }) {
@@ -61,7 +62,7 @@ function PlanCard({ plan, billing, onSubscribe, currentPlan }) {
         </div>
         {billing === "annual" && (
           <div style={{fontSize:12,color:"rgba(255,255,255,.65)",marginTop:4}}>
-            Billed ${plan.annualPrice * 12}/year · ${plan.monthlyPrice}/mo if monthly
+            Billed ${(plan.annualBilledTotal || plan.annualPrice * 12).toFixed(2)}/year · ${plan.monthlyPrice}/mo if monthly
           </div>
         )}
 
@@ -276,7 +277,7 @@ function SubscribeModal({ plan, billing, onClose, onConfirm }) {
                 </div>
                 {billing === "annual" && (
                   <div style={{fontSize:11,color:plan.colorDark,fontWeight:600,marginTop:2}}>
-                    ${plan.annualPrice * 12} billed annually
+                    ${(plan.annualBilledTotal || plan.annualPrice * 12).toFixed(2)} billed annually
                   </div>
                 )}
               </div>
@@ -318,20 +319,39 @@ export default function ServicesPage({ navigate, user }) {
   const [billing, setBilling] = useState("monthly");
   const [tab, setTab] = useState("plans"); // "plans" | "services"
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [subscribedPlan, setSubscribedPlan] = useState(user?.plan || null);
+  const [subscribedPlan, setSubscribedPlan] = useState(null);
   const [filterCat, setFilterCat] = useState("all");
   const [successPlan, setSuccessPlan] = useState(null);
+
+  useEffect(() => {
+    if (user) {
+      subscriptions.getCurrent().then(({ data }) => {
+        if (data && data.subscription) {
+          setSubscribedPlan(data.subscription.plan);
+        }
+      }).catch(() => {});
+    }
+  }, [user]);
 
   const filteredSvcs = filterCat === "all"
     ? DIGITAL_SERVICES
     : DIGITAL_SERVICES.filter(s => s.category === filterCat);
 
   const handleSubscribe = (plan) => {
+    if (!user) {
+      navigate("login");
+      return;
+    }
     if (subscribedPlan === plan.id) return;
     setSelectedPlan(plan);
   };
 
-  const handleConfirm = (plan) => {
+  const handleConfirm = async (plan) => {
+    const { data, error } = await subscriptions.upgrade(plan.id, billing, "card");
+    if (error) {
+      alert(error);
+      return;
+    }
     setSubscribedPlan(plan.id);
     setSelectedPlan(null);
     setSuccessPlan(plan);

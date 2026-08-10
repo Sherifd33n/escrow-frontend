@@ -63,34 +63,38 @@ const DisputeModal = ({ tx, onClose, onSubmit }) => {
       img.src = url;
     });
 
-  const processFiles = (fileList) => {
+  const readFileAsBase64 = (file) =>
+    new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+
+  const processFiles = async (fileList) => {
     const picked = Array.from(fileList || []);
     if (!picked.length) return;
 
-    picked.forEach((file) => {
+    for (const file of picked) {
       if (file.type.startsWith("image/")) {
-        compressImage(file).then((data) => {
-          if (!data) return;
+        const compressed = await compressImage(file);
+        const data = compressed || (await readFileAsBase64(file));
+        if (data) {
           setFiles((prev) => {
-            const exists = prev.some((f) => f.name === file.name);
-            if (exists) return prev;
-            return [
-              ...prev,
-              { file, name: file.name, type: "image", data },
-            ].slice(0, 5);
+            if (prev.some((f) => f.name === file.name)) return prev;
+            return [...prev, { file, name: file.name, type: "image", data }].slice(0, 5);
           });
-        });
+        }
       } else {
-        setFiles((prev) => {
-          const exists = prev.some((f) => f.name === file.name);
-          if (exists) return prev;
-          return [
-            ...prev,
-            { file, name: file.name, type: "file" },
-          ].slice(0, 5);
-        });
+        const data = await readFileAsBase64(file);
+        if (data) {
+          setFiles((prev) => {
+            if (prev.some((f) => f.name === file.name)) return prev;
+            return [...prev, { file, name: file.name, type: "file", data }].slice(0, 5);
+          });
+        }
       }
-    });
+    }
   };
 
   const handleFileChange = (e) => {
@@ -125,7 +129,7 @@ const DisputeModal = ({ tx, onClose, onSubmit }) => {
     setErr("");
     try {
       const imagesList = files.filter(f => f.type === "image").map(f => ({ name: f.name, data: f.data }));
-      const filesList  = files.filter(f => f.type !== "image").map(f => ({ name: f.name }));
+      const filesList  = files.filter(f => f.type !== "image").map(f => ({ name: f.name, data: f.data }));
 
       let finalEvidence = desc;
       if (imagesList.length > 0 || filesList.length > 0) {
@@ -136,7 +140,8 @@ const DisputeModal = ({ tx, onClose, onSubmit }) => {
         });
       }
 
-      const { data, error } = await transactions.fileDispute(tx.id, {
+      const targetId = tx.realId || tx.id;
+      const { data, error } = await transactions.fileDispute(targetId, {
         reason,
         evidence: finalEvidence
       });
@@ -150,7 +155,7 @@ const DisputeModal = ({ tx, onClose, onSubmit }) => {
           `A Dispute Resolution Officer will review all communications, evidence images, and deliverables to issue a binding decision within 5 business days.`
         );
         setDone(true);
-        onSubmit();
+        if (onSubmit) onSubmit();
       }
     } catch (e) {
       setLd(false);
