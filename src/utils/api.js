@@ -179,14 +179,18 @@ export const transactions = {
 
   get: (id) => get(`/transactions/${id}`),
 
-  updateStatus: (id, status, ai_audit_note) =>
-    patch(`/transactions/${id}/status`, { status, ai_audit_note }),
+  updateStatus: (id, status, extraBody = {}) =>
+    patch(`/transactions/${id}/status`, { status, ...extraBody }),
 
   addMilestone: (txnId, data) =>
     post(`/transactions/${txnId}/milestones`, data),
 
   updateMilestone: (milestoneId, data) =>
     patch(`/transactions/milestones/${milestoneId}/status`, data),
+
+  // Convenience wrapper used by dashboards: PATCH /milestones/:id/status { status, reason, details, deliverable_note }
+  updateMilestoneStatus: (milestoneId, status, extraBody = {}) =>
+    patch(`/transactions/milestones/${milestoneId}/status`, { status, ...extraBody }),
 
   payMilestone: (milestoneId) =>
     post(`/transactions/milestones/${milestoneId}/pay`),
@@ -203,6 +207,12 @@ export const transactions = {
   submitReview: (id, data) => post(`/transactions/${id}/review`, data),
 
   getReviews: (id) => get(`/transactions/${id}/review`),
+
+  // Attach or update confirmed AI scope on an existing transaction (buyer only)
+  confirmScope: (id, data) => patch(`/transactions/${id}/scope`, data),
+
+  // Provider requests contract changes from client before starting work
+  requestScopeChanges: (id, message) => post(`/transactions/${id}/scope/request-changes`, { message }),
 };
 
 // ─── ADMIN ───────────────────────────────────────────────────────
@@ -317,6 +327,7 @@ export const ai = {
   generateScope: (categoryLabel, description) =>
     post("/ai/scope", { categoryLabel, description }),
   runAudit: (data) => post("/ai/audit", data),
+  getAudits: (transactionId) => get(`/ai/audits/${transactionId}`),
 };
 
 // ─── REAL-TIME NOTIFICATIONS (SSE) ───────────────────────────────

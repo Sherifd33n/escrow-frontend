@@ -13,18 +13,34 @@ const STATUS_CFG = {
 };
 
 const MILESTONE_CFG = {
-  paid:     { label:"Paid",     icon:"check_circle",           color:"#006c47", bg:"#f0fdf4" },
-  approved: { label:"Approved", icon:"check_circle",           color:"#006c47", bg:"#f0fdf4" },
-  due:      { label:"Due Now",  icon:"schedule",               color:"#dc2626", bg:"#fef2f2" },
-  upcoming: { label:"Upcoming", icon:"radio_button_unchecked", color:"#8b5cf6", bg:"#f5f3ff" },
-  pending:  { label:"Pending",  icon:"radio_button_unchecked", color:"#75777f", bg:"#f5f3f6" },
+  paid:      { label:"Paid",                 icon:"check_circle",           color:"#006c47", bg:"#f0fdf4" },
+  approved:  { label:"Approved",             icon:"check_circle",           color:"#006c47", bg:"#f0fdf4" },
+  submitted: { label:"Submitted for Review", icon:"assignment_turned_in", color:"#1d4ed8", bg:"#eff6ff" },
+  inprogress:{ label:"In Progress",          icon:"sync",                   color:"#3b82f6", bg:"#eff6ff" },
+  due:       { label:"Due Now",              icon:"schedule",               color:"#dc2626", bg:"#fef2f2" },
+  upcoming:  { label:"Upcoming",             icon:"radio_button_unchecked", color:"#8b5cf6", bg:"#f5f3ff" },
+  pending:   { label:"Pending",              icon:"radio_button_unchecked", color:"#75777f", bg:"#f5f3f6" },
 };
 
-function PaymentCard({ payment, onPay }) {
+function PaymentCard({ payment, onPay, optimisticStatuses = {} }) {
   const [open, setOpen] = useState(false);
   const plan = PLANS.find(p => p.id === payment.plan);
+
+  // Merge optimistic status overrides into payment milestones so newly-paid
+  // milestones appear as 'paid' immediately without waiting for server refetch.
+  const milestones = payment.milestones.map(m => ({
+    ...m,
+    status: optimisticStatuses[m.id] || m.status,
+  }));
+
+  // Recalculate paid/remaining based on merged statuses (paid, submitted, approved all count as funded)
+  const effectivePaid = milestones
+    .filter(m => ["paid", "submitted", "approved"].includes(m.status))
+    .reduce((s, m) => s + parseFloat(m.amount || 0), 0);
+  const effectiveRemaining = Math.max(0, payment.totalAmount - effectivePaid);
+
   const sc = STATUS_CFG[payment.status];
-  const pct = Math.round((payment.paid / payment.totalAmount) * 100);
+  const pct = Math.round((effectivePaid / payment.totalAmount) * 100);
   const gradStr = BRAND_GRAD;
 
   return (
@@ -66,8 +82,8 @@ function PaymentCard({ payment, onPay }) {
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(100px,1fr))",gap:12,marginBottom:16}}>
           {[
             {label:"Total",value:`$${payment.totalAmount.toLocaleString()}`,icon:"payments",color:"#001637"},
-            {label:"Paid",value:`$${payment.paid.toLocaleString()}`,icon:"check_circle",color:"#006c47"},
-            {label:"Remaining",value:`$${payment.remaining.toLocaleString()}`,icon:"schedule",color: payment.remaining > 0 ? "#dc2626" : "#006c47"},
+            {label:"Paid",value:`$${effectivePaid.toLocaleString()}`,icon:"check_circle",color:"#006c47"},
+            {label:"Remaining",value:`$${effectiveRemaining.toLocaleString()}`,icon:"schedule",color: effectiveRemaining > 0 ? "#dc2626" : "#006c47"},
           ].map(f => (
             <div key={f.label} style={{background:"#f5f3f6",borderRadius:10,padding:"12px 14px"}}>
               <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:4}}>
@@ -120,12 +136,12 @@ function PaymentCard({ payment, onPay }) {
 
         {open && (
           <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:8,animation:"fadeIn .2s ease"}}>
-            {payment.milestones.map((m,i) => {
+            {milestones.map((m,i) => {
               const mc = MILESTONE_CFG[m.status] || MILESTONE_CFG.upcoming;
               // Hide Pay Now if the overall transaction is completed (normal completion
-              // or dispute resolution) OR if this specific milestone was already paid/approved.
+              // or dispute resolution) OR if this specific milestone was already paid/submitted/approved.
               const isPayable = payment.status !== "completed" &&
-                m.status !== "paid" && m.status !== "approved";
+                !["paid", "submitted", "approved"].includes(m.status);
               return (
                 <div key={i} style={{display:"flex",alignItems:"center",gap:12,
                   background: mc.bg,borderRadius:10,padding:"12px 14px",
@@ -166,6 +182,9 @@ function PaymentCard({ payment, onPay }) {
 export default function SubscriptionsTab({ user, navigate, payments = [], onPaymentSuccess }) {
   const [payModal, setPayModal] = useState(null);
   const [paySuccess, setPaySuccess] = useState(false);
+  // Optimistic overrides: { [milestoneId]: status }
+  // Applied immediately on successful payment so the UI never flickers back.
+  const [optimisticStatuses, setOptimisticStatuses] = useState({});
 
   const totalPaid = payments.reduce((s,p) => s + p.paid, 0);
   // Only active (non-completed) transactions have outstanding balances.
@@ -182,11 +201,15 @@ export default function SubscriptionsTab({ user, navigate, payments = [], onPaym
   };
 
   const confirmPay = async () => {
-    const { data, error } = await transactions.payMilestone(payModal.milestone.id);
+    const { milestone } = payModal;
+    const { data, error } = await transactions.payMilestone(milestone.id);
     if (error) {
       alert(error);
       return;
     }
+    // Optimistic update: mark this milestone as 'paid' immediately
+    // so the UI stays consistent while the server refetch is in flight.
+    setOptimisticStatuses(prev => ({ ...prev, [milestone.id]: "paid" }));
     setPayModal(null);
     setPaySuccess(true);
     if (onPaymentSuccess) {
@@ -248,7 +271,7 @@ export default function SubscriptionsTab({ user, navigate, payments = [], onPaym
             </button>
           </div>
         ) : (
-          payments.map(p => <PaymentCard key={p.id} payment={p} onPay={handlePay} />)
+          payments.map(p => <PaymentCard key={p.id} payment={p} onPay={handlePay} optimisticStatuses={optimisticStatuses} />)
         )}
       </div>
 

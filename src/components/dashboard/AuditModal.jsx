@@ -8,8 +8,12 @@ const AuditModal=({tx,onClose,onApprove,onRevision})=>{
   useEffect(()=>{
     (async()=>{
       setLd(true);
+      const activeM = (tx.milestones || []).find(m => ["submitted", "inprogress", "due", "rejected"].includes(m.status));
+      const activeSub = activeM && activeM.submissions && activeM.submissions.length ? activeM.submissions[activeM.submissions.length - 1].id : undefined;
       const { data, error } = await ai.runAudit({
         transactionId: tx.realId || tx.id,
+        milestoneId: activeM?.id,
+        submissionId: activeSub,
         title: tx.title,
         type: tx.type,
         amount: tx.amount,

@@ -112,20 +112,59 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
     fetchDashboardData();
   };
 
-  const totalEarned   = jobs.filter(j => j.status === "completed").reduce((sum, j) => {
-    if (!j.milestones || j.milestones.length === 0) return sum + j.amount;
-    const earnedMilestones = j.milestones.filter(m => ["approved", "paid"].includes(m.status));
-    if (earnedMilestones.length === 0) return sum;
-    const earnedAmount = earnedMilestones.reduce((mSum, m) => mSum + parseFloat(m.amount || 0), 0);
-    return sum + (earnedAmount || j.amount);
+  const totalEarned = jobs.reduce((sum, j) => {
+    const released = parseFloat(j.released_amount) || 0;
+    if (released > 0) return sum + released;
+    if (j.status === "completed") return sum + (parseFloat(j.amount) || 0);
+    const approvedM = (j.milestones || []).filter(m => m.status === "approved");
+    return sum + approvedM.reduce((mSum, m) => mSum + (parseFloat(m.amount) || 0), 0);
   }, 0);
-  const pendingPayout = jobs.filter(j => j.status === "approved").reduce((s,j) => s+j.amount, 0);
-  const activeJobs    = jobs.filter(j => !["completed","cancelled"].includes(j.status)).length;
+
+  const pendingPayout = jobs.reduce((sum, j) => {
+    if (["completed", "cancelled"].includes(j.status)) return sum;
+    const isSubmitted = ["inspection", "audit"].includes(j.status) ||
+      (j.milestones || []).some(m => m.status === "submitted");
+    if (isSubmitted) {
+      const eb = parseFloat(j.escrow_balance);
+      if (!isNaN(eb) && eb > 0) return sum + eb;
+      const fundedM = (j.milestones || []).filter(m => ["paid", "submitted"].includes(m.status));
+      return sum + fundedM.reduce((mSum, m) => mSum + (parseFloat(m.amount) || 0), 0);
+    }
+    return sum;
+  }, 0);
+
+  const inEscrowValue = jobs.filter(j => !["completed", "cancelled"].includes(j.status)).reduce((sum, j) => {
+    const eb = parseFloat(j.escrow_balance);
+    if (!isNaN(eb) && eb > 0) return sum + eb;
+    const fundedM = (j.milestones || []).filter(m => ["paid", "submitted", "approved", "rejected"].includes(m.status));
+    const fundedAmt = fundedM.reduce((mSum, m) => mSum + (parseFloat(m.amount) || 0), 0);
+    const rel = parseFloat(j.released_amount) || 0;
+    return sum + Math.max(0, fundedAmt - rel);
+  }, 0);
+
+  const activeJobs = jobs.filter(j => !["completed","cancelled"].includes(j.status)).length;
 
   const submitMilestone = async (jobId) => {
     const job = jobs.find(j => j.id === jobId);
     if (!job) return;
-    const { error } = await transactions.updateStatus(job.realId, "inspection", milestoneNote);
+
+    // Prefer milestone-level submission (marks milestone 'submitted', bumps transaction to 'inspection')
+    // Include 'paid' — milestones funded into escrow are ready for work submission
+    const activeM = (job.milestones || []).find(m => ["inprogress", "due", "paid", "pending", "upcoming", "rejected"].includes(m.status));
+    let error;
+    if (activeM) {
+      const res = await transactions.updateMilestoneStatus(activeM.id, "submitted", {
+        deliverable_note: milestoneNote || undefined,
+      });
+      error = res.error;
+    } else {
+      // Fall back to transaction-level status push to 'inspection'
+      const res = await transactions.updateStatus(job.realId, "inspection", {
+        deliverable_note: milestoneNote || undefined,
+      });
+      error = res.error;
+    }
+
     if (error) {
       alert(error);
       return;
@@ -290,10 +329,43 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
 
                     {/* Actions based on status */}
                     <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                      {job.status === "inprogress" && (
+
+                      {/* View Contract — always visible so provider can review the agreed scope at any stage */}
+                      <Btn variant="outline" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowContract(job); }}>📄 View Contract</Btn>
+
+                      {["inprogress", "revision"].includes(job.status) && (
                         <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
+                          {/* Client Revision Request Banner */}
+                          {(job.status === "revision" || (job.milestones || []).some(m => (m.revision_requests || []).length > 0)) && (
+                            <div style={{ background:"#fff7ed", border:"1px solid #fed7aa", borderRadius:10, padding:"12px 14px", fontSize:13, color:"#c2410c", width:"100%" }}>
+                              <div style={{ fontWeight: 700, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                                <span className="msym" style={{ fontSize: 18 }}>refresh</span>
+                                Revision Requested by Client
+                              </div>
+                              {(job.milestones || []).flatMap(m => m.revision_requests || []).slice(-1).map((rr, idx) => (
+                                <div key={idx} style={{ fontSize: 12.5, marginTop: 4, color: "#9a3412", lineHeight: 1.5 }}>
+                                  {rr.reason && <div><strong>Reason:</strong> {rr.reason}</div>}
+                                  {rr.details && <div><strong>Details:</strong> {rr.details}</div>}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Submission History */}
+                          {(job.milestones || []).some(m => (m.submissions || []).length > 0) && (
+                            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 14px", fontSize: 12.5, color: "#334155" }}>
+                              <div style={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: ".04em", color: "#64748b", marginBottom: 6 }}>Submission History</div>
+                              {(job.milestones || []).flatMap(m => m.submissions || []).map((sub, sIdx) => (
+                                <div key={sIdx} style={{ padding: "4px 0", borderBottom: sIdx < (job.milestones?.flatMap(m=>m.submissions||[]).length||0) - 1 ? "1px dashed #cbd5e1" : "none" }}>
+                                  <span style={{ fontWeight: 700, color: "#0f172a" }}>Version {sub.version || sIdx + 1}:</span> {sub.deliverable_note}
+                                  {sub.created_at && <span style={{ fontSize: 11, color: "#64748b", marginLeft: 8 }}>({new Date(sub.created_at).toLocaleDateString()})</span>}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
                           <textarea
-                            placeholder="Describe what you're submitting (deliverable notes, links, etc.)"
+                            placeholder={job.status === "revision" ? "Describe your revised work and changes made..." : "Describe what you're submitting (deliverable notes, links, etc.)"}
                             value={milestoneNote}
                             onChange={e => setMilestoneNote(e.target.value)}
                             style={{ width:"100%", borderRadius:10, border:"1px solid #c5c6cf", padding:"10px 12px", fontSize:13, resize:"vertical", minHeight:80, fontFamily:"inherit", boxSizing:"border-box" }}
@@ -301,9 +373,8 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
                           />
                           <div style={{ display:"flex", gap:8 }}>
                             <Btn variant="accent" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); submitMilestone(job.id); }}>
-                              <span className="msym" style={{ fontSize:16 }}>upload</span> Submit for Review
+                              <span className="msym" style={{ fontSize:16 }}>upload</span> {job.status === "revision" ? "Resubmit Revised Work" : "Submit for Review"}
                             </Btn>
-                            <Btn variant="outline" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowContract(job); }}>📄 View Contract</Btn>
                           </div>
                         </div>
                       )}
@@ -357,7 +428,7 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
               {[
                 { label:"Total Earned",   value:"$"+totalEarned.toLocaleString(),                               color:"#006c47" },
                 { label:"Pending Payout", value:"$"+pendingPayout.toLocaleString(),                             color:"#001637" },
-                { label:"In Escrow",      value:"$"+jobs.filter(j=>j.status==="funded"||j.status==="inprogress").reduce((s,j)=>s+j.amount,0).toLocaleString(), color:"#1a56a0" },
+                { label:"In Escrow",      value:"$"+inEscrowValue.toLocaleString(),                             color:"#1a56a0" },
               ].map(s => (
                 <div key={s.label} style={{ background:"#fff", border:"1px solid #e9e7eb", borderRadius:14, padding:"22px 20px", textAlign:"center" }}>
                   <div style={{ fontSize:11, fontWeight:600, color:"#75777f", textTransform:"uppercase", letterSpacing:".06em", marginBottom:8 }}>{s.label}</div>

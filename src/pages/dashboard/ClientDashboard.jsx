@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { T, fs } from "../../tokens";
 import { Btn, Badge, Spin, StatusBadge as SB, FormField as F } from "../../components/ui";
 import { CATS, CURR, SCFG, PLANS, SUBSCRIBED_PAYMENTS } from "../../data/constants";
@@ -46,7 +46,11 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
   const [walletBalance, setWalletBalance] = useState(0);
   const [showReview, setShowReview] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showRevisionInput, setShowRevisionInput] = useState(null);
+  const [revisionReason, setRevisionReason] = useState("");
+  const [revisionDetails, setRevisionDetails] = useState("");
 
+  const _fetchRef = useRef(null);
   const fetchDashboardData = async () => {
     const [txsRes, walletRes] = await Promise.all([
       transactions.list(),
@@ -66,6 +70,13 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
     if (walletRes.data) {
       setWalletBalance(parseFloat(walletRes.data.balance) || 0);
     }
+  };
+
+  // Debounced version — collapses rapid-fire SSE + manual calls into one fetch
+  // after a short delay, preventing race conditions that cause stale milestone state.
+  const debouncedFetch = () => {
+    if (_fetchRef.current) clearTimeout(_fetchRef.current);
+    _fetchRef.current = setTimeout(() => { fetchDashboardData(); }, 400);
   };
 
   const [kycStatus, setKycStatus] = useState(
@@ -106,11 +117,12 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
 
   // ── SSE: auto-refresh on server-side events ──────────────────────────────
   useEffect(() => {
-    const offTx     = sseEmitter.on("transaction_update", fetchDashboardData);
+    // Use debounced fetch for SSE events so concurrent triggers collapse.
+    const offTx     = sseEmitter.on("transaction_update", debouncedFetch);
     const offWallet = sseEmitter.on("wallet_update",      () => wallet.get().then(r => { if (r.data) setWalletBalance(parseFloat(r.data.balance) || 0); }));
     const offKyc    = sseEmitter.on("kyc_update",         checkKYC);
-    const offDisp   = sseEmitter.on("dispute_update",     fetchDashboardData);
-    return () => { offTx(); offWallet(); offKyc(); offDisp(); };
+    const offDisp   = sseEmitter.on("dispute_update",     debouncedFetch);
+    return () => { offTx(); offWallet(); offKyc(); offDisp(); if (_fetchRef.current) clearTimeout(_fetchRef.current); };
   }, []);
 
   const hn = k => e => setNf(p => ({ ...p, [k]: e.target.value }));
@@ -131,8 +143,9 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
       currency: nf.currency,
       counterparty: nf.counterparty,
       role: nf.role,
-      milestones_count: parseInt(nf.milestones) || 1,
-      review_days: parseInt(nf.days) || 3
+      milestones_count: scope?.milestones?.length || parseInt(nf.milestones) || 1,
+      review_days: parseInt(nf.days) || 3,
+      scope_json: scope || null,
     });
     setSubmitting(false);
     if (error) {
@@ -156,8 +169,8 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
     // dispute resolved in the buyer's favour also sets status='completed' but the
     // money was refunded, not paid out to the provider.
     const paid = (t.milestones || [])
-      .filter(m => m.status === 'paid' || m.status === 'approved')
-      .reduce((s, m) => s + parseFloat(m.amount), 0);
+      .filter(m => ['paid', 'submitted', 'approved'].includes(m.status))
+      .reduce((s, m) => s + parseFloat(m.amount || 0), 0);
     const remaining = Math.max(0, totalAmount - paid);
 
     let status = 'in_progress';
@@ -191,7 +204,14 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
 
   const activeTxs   = txs.filter(t => !["completed","cancelled"].includes(t.status));
   const activeCount = activeTxs.length;
-  const totalValue  = activeTxs.reduce((s, t) => s + (parseFloat(t.escrow_balance) || 0), 0);
+  const totalValue  = activeTxs.reduce((s, t) => {
+    const eb = parseFloat(t.escrow_balance);
+    if (!isNaN(eb) && eb > 0) return s + eb;
+    const fundedM = (t.milestones || []).filter(m => ["paid", "submitted", "approved", "rejected"].includes(m.status));
+    const fundedAmt = fundedM.reduce((sum, m) => sum + (parseFloat(m.amount) || 0), 0);
+    const rel = parseFloat(t.released_amount) || 0;
+    return s + Math.max(0, fundedAmt - rel);
+  }, 0);
   const duePayments = payments.filter(p => p.status === "due" || p.milestones?.some(m => m.status === "due")).length;
 
   return (
@@ -356,11 +376,100 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
                     </div>
                   </div>
                   {detail?.id === tx.id && (
-                    <div style={{ marginTop:14, paddingTop:14, borderTop:"1px solid #f0f0f0", display:"flex", gap:8, flexWrap:"wrap" }}>
-                      <Btn variant="outline" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowContract(tx); }}>📄 Contract</Btn>
-                      <Btn variant="teal" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowAudit(tx); }}>🤖 AI Audit</Btn>
-                      {!["completed","cancelled","disputed"].includes(tx.status) && <Btn variant="red" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowDispute(tx); }}>⚠️ Dispute</Btn>}
-                      {tx.status === "completed" && <Btn variant="green" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowReview(tx); }}>⭐ Reviews & Ratings</Btn>}
+                    <div style={{ marginTop:14, paddingTop:14, borderTop:"1px solid #f0f0f0", display:"flex", flexDirection:"column", gap:10 }}>
+
+                      {/* Submitted Deliverable Review Box */}
+                      {tx.status === "inspection" && (
+                        <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 14px", fontSize: 13, color: "#166534", width: "100%" }} onClick={e => e.stopPropagation()}>
+                          <div style={{ fontWeight: 700, fontSize: 14, color: "#15803d", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                            <span className="msym" style={{ fontSize: 18 }}>assignment_turned_in</span>
+                            Deliverable Submitted for Your Review
+                          </div>
+                          <div style={{ fontSize: 12.5, color: "#1e293b", background: "#fff", border: "1px solid #cbd5e1", borderRadius: 8, padding: "10px 12px", marginBottom: 10, lineHeight: 1.5 }}>
+                            <strong>Provider Note:</strong> {(tx.milestones || []).find(m => m.deliverable_note)?.deliverable_note || "Deliverable submitted for review."}
+                          </div>
+
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <Btn variant="green" style={{ fontSize: 13 }} onClick={async (e) => {
+                              e.stopPropagation();
+                              if (window.confirm("Approve work and release escrow funds to provider?")) {
+                                const res = await transactions.updateStatus(tx.realId, "approved");
+                                if (res.error) alert(res.error);
+                                else fetchDashboardData();
+                              }
+                            }}>
+                              <span className="msym" style={{ fontSize: 16 }}>check_circle</span> Approve &amp; Release Funds
+                            </Btn>
+
+                            <Btn variant="outline" style={{ fontSize: 13, borderColor: "#d97706", color: "#b45309" }} onClick={(e) => {
+                              e.stopPropagation();
+                              setShowRevisionInput(showRevisionInput === tx.id ? null : tx.id);
+                            }}>
+                              <span className="msym" style={{ fontSize: 16 }}>refresh</span> Request Revision
+                            </Btn>
+                          </div>
+
+                          {showRevisionInput === tx.id && (
+                            <div style={{ marginTop: 12, background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 8, padding: "12px 14px" }} onClick={e => e.stopPropagation()}>
+                              <div style={{ fontWeight: 700, fontSize: 13, color: "#92400e", marginBottom: 6 }}>Describe Requested Revisions:</div>
+                              <input
+                                type="text"
+                                placeholder="Reason (e.g., Mobile responsive issue)"
+                                value={revisionReason}
+                                onChange={e => setRevisionReason(e.target.value)}
+                                style={{ width: "100%", borderRadius: 6, border: "1px solid #d97706", padding: "8px 10px", fontSize: 12.5, marginBottom: 8, boxSizing: "border-box" }}
+                              />
+                              <textarea
+                                placeholder="Specific details of what needs to be fixed or changed..."
+                                value={revisionDetails}
+                                onChange={e => setRevisionDetails(e.target.value)}
+                                rows={3}
+                                style={{ width: "100%", borderRadius: 6, border: "1px solid #d97706", padding: "8px 10px", fontSize: 12.5, fontFamily: "inherit", marginBottom: 8, boxSizing: "border-box" }}
+                              />
+                              <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                                <Btn variant="outline" style={{ fontSize: 12, padding: "5px 12px" }} onClick={() => setShowRevisionInput(null)}>Cancel</Btn>
+                                <Btn variant="accent" style={{ fontSize: 12, padding: "5px 14px" }} onClick={async () => {
+                                  if (!revisionDetails.trim()) {
+                                    alert("Please provide details for the revision request.");
+                                    return;
+                                  }
+                                  const submittedM = (tx.milestones || []).find(m => m.status === "submitted");
+                                  let res;
+                                  if (submittedM) {
+                                    res = await transactions.updateMilestoneStatus(submittedM.id, "rejected", {
+                                      reason: revisionReason || "Revision Requested",
+                                      details: revisionDetails,
+                                      deliverable_note: revisionDetails
+                                    });
+                                  } else {
+                                    // No submitted milestone — use transaction-level revision transition
+                                    res = await transactions.updateStatus(tx.realId, "revision", {
+                                      reason: revisionReason || "Revision Requested",
+                                      details: revisionDetails
+                                    });
+                                  }
+                                  if (res.error) alert(res.error);
+                                  else {
+                                    setShowRevisionInput(null);
+                                    setRevisionReason("");
+                                    setRevisionDetails("");
+                                    fetchDashboardData();
+                                  }
+                                }}>
+                                  Send Revision Request →
+                                </Btn>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                        <Btn variant="outline" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowContract(tx); }}>📄 Contract</Btn>
+                        <Btn variant="teal" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowAudit(tx); }}>🤖 AI Audit</Btn>
+                        {!["completed","cancelled","disputed"].includes(tx.status) && <Btn variant="red" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowDispute(tx); }}>⚠️ Dispute</Btn>}
+                        {tx.status === "completed" && <Btn variant="green" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowReview(tx); }}>⭐ Reviews & Ratings</Btn>}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -473,7 +582,7 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
                     </div>
                   </div>
                   <div style={{ display:"grid", gridTemplateColumns:"1fr 90px", gap:10 }}>
-                    <F label="Project Value" req><input style={fs} type="number" placeholder="0.00" value={nf.amount} onChange={hn("amount")} /></F>
+                    <F label="Project Value" req><input style={fs} type="number" min="0.01" step="any" placeholder="0.00" value={nf.amount} onChange={e => { const val = e.target.value; if (val === "" || parseFloat(val) >= 0) hn("amount")(e); }} /></F>
                     <F label="Currency"><select style={fs} value={nf.currency} onChange={hn("currency")}>{CURR.map(c => <option key={c}>{c}</option>)}</select></F>
                   </div>
                   <F label="Milestones"><select style={fs} value={nf.milestones} onChange={hn("milestones")}>{[1,2,3,4,5,6,8,10].map(n => <option key={n} value={n}>{n} milestone{n>1?"s":""}</option>)}</select></F>
@@ -564,7 +673,7 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
           }}
         />
       )}
-      {showContract && <ContractModal tx={showContract} scope={scope} onClose={() => setShowContract(null)} />}
+      {showContract && <ContractModal tx={showContract} scope={showContract?.scope_json || scope} onClose={() => setShowContract(null)} onScopeUpdated={fetchDashboardData} />}
       {showScope && <ScopeModal catLabel={CATS.find(c=>c.id===nf.type)?.label||"Software"} onClose={() => setShowScope(false)} onApply={s => { setScope(s); setNf(p => ({ ...p, title:s.title })); }} />}
       {showReview && <ReviewModal tx={showReview} onClose={() => setShowReview(null)} onSubmit={fetchDashboardData} />}
 
