@@ -10,6 +10,7 @@ import WalletTab from "../../components/dashboard/WalletTab";
 import KYC from "../../components/dashboard/KYCModal";
 import PhoneVerifyModal from "../../components/dashboard/PhoneVerifyModal";
 import ReviewModal from "../../components/dashboard/ReviewModal";
+import SubmitDeliverableModal from "../../components/dashboard/SubmitDeliverableModal";
 import { users, transactions, wallet } from "../../utils/api";
 import { sseEmitter } from "../../utils/useSSE";
 
@@ -38,6 +39,7 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
   const [walletBalance, setWalletBalance] = useState(0);
   const [milestoneNote, setMilestoneNote] = useState("");
   const [showReview, setShowReview] = useState(null);
+  const [showSubmitModal, setShowSubmitModal] = useState(null);
 
   const fetchDashboardData = async () => {
     const [txsRes, walletRes] = await Promise.all([
@@ -364,18 +366,25 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
                             </div>
                           )}
 
-                          <textarea
-                            placeholder={job.status === "revision" ? "Describe your revised work and changes made..." : "Describe what you're submitting (deliverable notes, links, etc.)"}
-                            value={milestoneNote}
-                            onChange={e => setMilestoneNote(e.target.value)}
-                            style={{ width:"100%", borderRadius:10, border:"1px solid #c5c6cf", padding:"10px 12px", fontSize:13, resize:"vertical", minHeight:80, fontFamily:"inherit", boxSizing:"border-box" }}
-                            onClick={e => e.stopPropagation()}
-                          />
-                          <div style={{ display:"flex", gap:8 }}>
-                            <Btn variant="accent" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); submitMilestone(job.id); }}>
-                              <span className="msym" style={{ fontSize:16 }}>upload</span> {job.status === "revision" ? "Resubmit Revised Work" : "Submit for Review"}
-                            </Btn>
-                          </div>
+                          {(() => {
+                            const catLabel = job.cat || job.category || job.type || "Project";
+                            return (
+                              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 14px", fontSize: 13, color: "#166534" }}>
+                                  <strong>{catLabel} Submission:</strong> Click below to enter your scope claims, evidence links, and technical artifacts for AI deliverable audit verification.
+                                </div>
+                                <div style={{ display:"flex", gap:8 }}>
+                                  <Btn variant="accent" style={{ fontSize:13 }} onClick={e => {
+                                    e.stopPropagation();
+                                    const activeM = (job.milestones || []).find(m => ["inprogress", "due", "paid", "pending", "upcoming", "rejected"].includes(m.status)) || job.milestones?.[0];
+                                    setShowSubmitModal({ job, milestone: activeM });
+                                  }}>
+                                    <span className="msym" style={{ fontSize:16 }}>assignment_turned_in</span> {job.status === "revision" ? "Resubmit Revised Deliverable" : "Submit Milestone Deliverable"}
+                                  </Btn>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
                       {job.status === "funded" && (
@@ -403,9 +412,6 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
                       )}
                       {job.status === "completed" && (
                         <Btn variant="green" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowReview(job); }}>⭐ Reviews & Ratings</Btn>
-                      )}
-                      {["inprogress","funded"].includes(job.status) && (
-                        <Btn variant="outline" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowAudit(job); }}>🤖 AI Audit</Btn>
                       )}
                       {!["completed","cancelled","disputed"].includes(job.status) && (
                         <Btn variant="red" style={{ fontSize:13 }} onClick={e => { e.stopPropagation(); setShowDispute(job); }}>⚠️ Dispute</Btn>
@@ -600,6 +606,17 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
       )}
       {showContract && <ContractModal tx={showContract} scope={null} onClose={() => setShowContract(null)} />}
       {showReview && <ReviewModal tx={showReview} onClose={() => setShowReview(null)} onSubmit={fetchDashboardData} />}
+      {showSubmitModal && (
+        <SubmitDeliverableModal
+          job={showSubmitModal.job}
+          activeMilestone={showSubmitModal.milestone}
+          onClose={() => setShowSubmitModal(null)}
+          onSubmitSuccess={() => {
+            fetchDashboardData();
+            setShowSubmitModal(null);
+          }}
+        />
+      )}
 
       {/* Mobile Bottom Nav */}
       <nav className="mbb" style={{ display:"none", position:"fixed", bottom:0, left:0, right:0, zIndex:50, background:"#fbf9fc", borderTop:"1px solid #c5c6cf", justifyContent:"space-around", alignItems:"center", height:66 }}>

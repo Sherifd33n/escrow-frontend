@@ -1,11 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { T } from "../../tokens";
 import { Btn, Spin } from "../../components/ui";
 import { ai } from "../../utils/api";
 
 const AuditModal=({tx,onClose,onApprove,onRevision})=>{
   const [ld,setLd]=useState(true);const [res,setRes]=useState(null);
+  const auditedRef = useRef(false);
+
   useEffect(()=>{
+    if (auditedRef.current) return;
+    auditedRef.current = true;
     (async()=>{
       setLd(true);
       const activeM = (tx.milestones || []).find(m => ["submitted", "inprogress", "due", "rejected"].includes(m.status));
@@ -64,6 +68,28 @@ const AuditModal=({tx,onClose,onApprove,onRevision})=>{
                 <span style={{fontSize:10,fontWeight:700,color:res.risk==="low"?T.green:res.risk==="medium"?T.accent:T.red,textTransform:"uppercase"}}>{res.risk} risk</span>
               </div>
             </div>
+            {Array.isArray(res.requirements) && res.requirements.length > 0 && (
+              <div style={{marginBottom:20}}>
+                <div style={{fontWeight:700,fontSize:13.5,color:T.primary,marginBottom:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span>Scope Requirement Audit</span>
+                  <span style={{fontSize:11,color:T.gray500,fontWeight:500}}>{res.requirements.filter(r => r.status === "passed").length}/{res.requirements.length} Verified</span>
+                </div>
+                {res.requirements.map((req, i) => {
+                  const reqColor = req.status === "passed" ? T.green : req.status === "passed_with_notes" ? T.accent : req.status === "insufficient_evidence" ? "#d97706" : T.red;
+                  const reqLabel = req.status === "passed" ? "PASSED" : req.status === "passed_with_notes" ? "WITH NOTES" : req.status === "insufficient_evidence" ? "NO EVIDENCE" : "REVISION REQ.";
+                  return (
+                    <div key={i} style={{padding:"12px 14px",background:T.offWhite,borderRadius:10,marginBottom:8,border:`1px solid ${reqColor}30`}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:4}}>
+                        <div style={{fontWeight:700,fontSize:13,color:T.primary}}>{req.requirement}</div>
+                        <span style={{fontSize:10.5,fontWeight:700,color:reqColor,background:reqColor+"15",padding:"2px 8px",borderRadius:12,whiteSpace:"nowrap"}}>{reqLabel} ({req.confidence || 80}%)</span>
+                      </div>
+                      <div style={{fontSize:12,color:T.gray600,lineHeight:1.5}}>{req.reason}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             <div style={{marginBottom:20}}>
               <div style={{fontWeight:700,fontSize:13.5,color:T.primary,marginBottom:12}}>Technical Checks</div>
               {res.checks?.map((c,i)=>(

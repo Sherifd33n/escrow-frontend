@@ -24,12 +24,15 @@ const SectionHeader = ({ children }) => (
   </div>
 );
 
-const Item = ({ n, text }) => (
-  <div style={{ display: "flex", gap: 10, marginBottom: 7, alignItems: "flex-start", fontSize: 13, color: "#1e293b", lineHeight: 1.6 }}>
-    <span style={{ minWidth: 22, height: 22, borderRadius: "50%", background: "#4338ca", color: "#fff", fontWeight: 700, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{n}</span>
-    <span>{text}</span>
-  </div>
-);
+const Item = ({ n, text }) => {
+  const renderText = typeof text === "string" ? text : (text && typeof text === "object" ? (text.name ? `${text.name}${text.description ? ": " + text.description : ""}` : JSON.stringify(text)) : String(text || ""));
+  return (
+    <div style={{ display: "flex", gap: 10, marginBottom: 7, alignItems: "flex-start", fontSize: 13, color: "#1e293b", lineHeight: 1.6 }}>
+      <span style={{ minWidth: 22, height: 22, borderRadius: "50%", background: "#4338ca", color: "#fff", fontWeight: 700, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{n}</span>
+      <span>{renderText}</span>
+    </div>
+  );
+};
 
 const InfoRow = ({ label, value }) => (
   <div style={{ display: "flex", gap: 6, marginBottom: 5, fontSize: 13, color: "#334155", lineHeight: 1.6 }}>

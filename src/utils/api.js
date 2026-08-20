@@ -213,7 +213,15 @@ export const transactions = {
 
   // Provider requests contract changes from client before starting work
   requestScopeChanges: (id, message) => post(`/transactions/${id}/scope/request-changes`, { message }),
+
+  // Upload a file as submission evidence — returns { url, original_name, size, mime_type }
+  uploadEvidenceFile: (file) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return requestMultipart("POST", "/transactions/evidence/upload", fd);
+  },
 };
+
 
 // ─── ADMIN ───────────────────────────────────────────────────────
 export const admin = {

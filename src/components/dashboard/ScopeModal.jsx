@@ -40,7 +40,15 @@ const ScopeModal=({catLabel,onClose,onApply})=>{
             {[["Deliverables",res.deliverables],["Acceptance Criteria",res.acceptance]].map(([t,items])=>(
               <div key={t} style={{marginBottom:18}}>
                 <div style={{fontWeight:700,fontSize:13.5,color:T.primary,marginBottom:10}}>{t}</div>
-                {items?.map((d,i)=><div key={i} style={{display:"flex",gap:9,alignItems:"flex-start",marginBottom:7,fontSize:13,color:T.gray700}}><span style={{color:T.teal,fontWeight:700,flexShrink:0}}>✓</span>{d}</div>)}
+                {items?.map((d,i)=>{
+                  const label = typeof d === "string" ? d : (d && typeof d === "object" ? (d.name ? `${d.name}${d.description ? " — " + d.description : ""}` : JSON.stringify(d)) : String(d || ""));
+                  return (
+                    <div key={i} style={{display:"flex",gap:9,alignItems:"flex-start",marginBottom:7,fontSize:13,color:T.gray700}}>
+                      <span style={{color:T.teal,fontWeight:700,flexShrink:0}}>✓</span>
+                      {label}
+                    </div>
+                  );
+                })}
               </div>
             ))}
             <div style={{marginBottom:18}}>
