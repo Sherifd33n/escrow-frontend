@@ -74,16 +74,31 @@ const AuditModal=({tx,onClose,onApprove,onRevision})=>{
                   <span>Scope Requirement Audit</span>
                   <span style={{fontSize:11,color:T.gray500,fontWeight:500}}>{res.requirements.filter(r => r.status === "passed").length}/{res.requirements.length} Verified</span>
                 </div>
+                {/* Deterministic fallback notice */}
+                {res.requirements.some(r => Array.isArray(r.limitations) && r.limitations.some(l => l.includes("Deterministic fallback") || l.includes("GROQ_API_KEY"))) && (
+                  <div style={{display:"flex",alignItems:"flex-start",gap:8,background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,padding:"10px 12px",marginBottom:12,fontSize:12,color:"#92400e",lineHeight:1.55}}>
+                    <span className="msym" style={{fontSize:16,flexShrink:0,color:"#d97706"}}>info</span>
+                    <span><strong>Deterministic audit mode:</strong> Groq AI key not configured. Scores are based on evidence submitted. Add <code>GROQ_API_KEY</code> to <code>/backend/.env</code> for full AI-powered analysis.</span>
+                  </div>
+                )}
                 {res.requirements.map((req, i) => {
                   const reqColor = req.status === "passed" ? T.green : req.status === "passed_with_notes" ? T.accent : req.status === "insufficient_evidence" ? "#d97706" : T.red;
                   const reqLabel = req.status === "passed" ? "PASSED" : req.status === "passed_with_notes" ? "WITH NOTES" : req.status === "insufficient_evidence" ? "NO EVIDENCE" : "REVISION REQ.";
+                  const reqScore = typeof req.score === "number" ? req.score : null;
                   return (
                     <div key={i} style={{padding:"12px 14px",background:T.offWhite,borderRadius:10,marginBottom:8,border:`1px solid ${reqColor}30`}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:4}}>
                         <div style={{fontWeight:700,fontSize:13,color:T.primary}}>{req.requirement}</div>
-                        <span style={{fontSize:10.5,fontWeight:700,color:reqColor,background:reqColor+"15",padding:"2px 8px",borderRadius:12,whiteSpace:"nowrap"}}>{reqLabel} ({req.confidence || 80}%)</span>
+                        <span style={{fontSize:10.5,fontWeight:700,color:reqColor,background:reqColor+"15",padding:"2px 8px",borderRadius:12,whiteSpace:"nowrap"}}>
+                          {reqLabel}{reqScore !== null ? ` • ${reqScore}/100` : ""}
+                        </span>
                       </div>
                       <div style={{fontSize:12,color:T.gray600,lineHeight:1.5}}>{req.reason}</div>
+                      {Array.isArray(req.verified) && req.verified.length > 0 && (
+                        <div style={{marginTop:6,display:"flex",flexWrap:"wrap",gap:4}}>
+                          {req.verified.map((v,vi) => <span key={vi} style={{fontSize:10,color:T.green,background:T.green+"12",borderRadius:8,padding:"1px 7px"}}>{v}</span>)}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
