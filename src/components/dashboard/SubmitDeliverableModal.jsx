@@ -138,10 +138,33 @@ export default function SubmitDeliverableModal({ job, activeMilestone, onClose, 
     setIsSubmitting(true);
 
     try {
+      // Ensure deliverables claims and evidence are populated from the 3 artifacts
+      const updatedDeliverables = deliverables.map((d, idx) => {
+        const sid = d.scope_item_id || d.id || `d${idx + 1}`;
+        let claimText = d.claim || "";
+
+        if (idx === 0 || sid === "d1") {
+          claimText = evidenceMap["zip_package"]?.url
+            ? `ZIP implementation package provided: ${evidenceMap["zip_package"].url}`
+            : (providerSummary || "ZIP package delivered.");
+        } else if (idx === 1 || sid === "d2") {
+          claimText = providerSummary.trim() || "Project text explanation and overview provided.";
+        } else {
+          claimText = providerSummary.trim() || claimText || "Deliverable completed.";
+        }
+
+        return {
+          ...d,
+          scope_item_id: sid,
+          status: "completed",
+          claim: claimText,
+        };
+      });
+
       const payload = buildSubmissionPayload({
         category: catConfig.id,
         summary: providerSummary,
-        deliverables,
+        deliverables: updatedDeliverables,
         evidenceMap,
         testing: testingInfo,
         customFieldsMap,
@@ -261,341 +284,166 @@ export default function SubmitDeliverableModal({ job, activeMilestone, onClose, 
             </div>
           )}
 
-          {/* Section 1: Scope Deliverables */}
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: T.primary, marginBottom: 4 }}>
-              1. Scope Deliverables & Provider Claims
-            </div>
-            <p style={{ fontSize: 12.5, color: T.gray500, marginBottom: 12 }}>
-              Select completion status and provide explanation for each contract requirement.
-            </p>
-
-            {deliverables.map((item, idx) => (
-              <div
-                key={item.scope_item_id}
-                style={{
-                  background: "#f8fafc",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: 12,
-                  padding: "14px",
-                  marginBottom: 10,
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13.5, color: "#0f172a" }}>
-                    #{idx + 1}. {item.name}
-                  </div>
-                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                    {[
-                      ["completed", "Completed", "#10b981"],
-                      ["partial", "Partial", "#f59e0b"],
-                      ["not_completed", "Not Completed", "#ef4444"],
-                      ["not_applicable", "N/A", "#64748b"],
-                    ].map(([stVal, stLabel, stColor]) => (
-                      <button
-                        key={stVal}
-                        type="button"
-                        onClick={() => updateItemStatus(item.scope_item_id, stVal)}
-                        style={{
-                          border: `1px solid ${item.status === stVal ? stColor : "#cbd5e1"}`,
-                          background: item.status === stVal ? stColor : "#ffffff",
-                          color: item.status === stVal ? "#ffffff" : "#475569",
-                          fontSize: 11,
-                          fontWeight: 700,
-                          padding: "3px 9px",
-                          borderRadius: 14,
-                          cursor: "pointer",
-                          transition: "all .15s ease",
-                        }}
-                      >
-                        {stLabel}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {item.description && (
-                  <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}>{item.description}</div>
-                )}
-
-                <textarea
-                  placeholder="Explain what was completed for this requirement..."
-                  value={item.claim}
-                  onChange={(e) => updateItemClaim(item.scope_item_id, e.target.value)}
-                  style={{
-                    width: "100%",
-                    borderRadius: 8,
-                    border: "1px solid #cbd5e1",
-                    padding: "8px 10px",
-                    fontSize: 12.5,
-                    resize: "vertical",
-                    minHeight: 50,
-                    fontFamily: "inherit",
-                    boxSizing: "border-box",
-                    background: "#ffffff",
-                  }}
-                />
-              </div>
-            ))}
+          {/* Banner: 2-Artifact Standard Guide */}
+          <div
+            style={{
+              background: "#f0f9ff",
+              border: "1px solid #bae6fd",
+              borderRadius: 12,
+              padding: "14px 16px",
+              marginBottom: 22,
+              fontSize: 12.5,
+              color: "#0369a1",
+              lineHeight: 1.55,
+            }}
+          >
+            <strong>Standard Provider Submission:</strong> Submit your ZIP package and project text summary below. The AI Audit System will unpack your ZIP archive, inspect all source files inside, and evaluate your submission against the scope.
           </div>
 
-          {/* Section 2: Category Evidence Inputs */}
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: T.primary, marginBottom: 4 }}>
-              2. {catConfig.label} Evidence & Links
+          {/* Artifact 1: Complete Project ZIP Package */}
+          <div
+            style={{
+              background: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              borderRadius: 14,
+              padding: "16px",
+              marginBottom: 16,
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: 13.5, color: "#0f172a", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+              <span className="msym" style={{ fontSize: 20, color: "#2563eb" }}>folder_zip</span>
+              1. Complete Project Implementation Archive (ZIP File)
             </div>
-            <p style={{ fontSize: 12.5, color: T.gray500, marginBottom: 12 }}>
-              Provide a URL <strong>or</strong> upload a file (PNG, JPG, PDF, ZIP — max 10 MB) as evidence.
-            </p>
+            <div style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>
+              Upload a ZIP package or paste a repository/ZIP URL containing all source code, assets, and project files.
+            </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {(catConfig.evidenceTypes || []).map((ev) => {
-                const isUploading = !!uploadingEvidence[ev.id];
-                const uploadedName = uploadedFileNames[ev.id];
-                const currentUrl = evidenceMap[ev.id]?.url || "";
+            <input
+              type="url"
+              placeholder="Paste repository/ZIP link (e.g., https://.../project_source.zip) or attach file below"
+              value={evidenceMap["zip_package"]?.url || ""}
+              onChange={(e) => updateEvidenceUrl("zip_package", e.target.value)}
+              style={{
+                width: "100%",
+                borderRadius: 8,
+                border: "1px solid #cbd5e1",
+                padding: "9px 12px",
+                fontSize: 13,
+                boxSizing: "border-box",
+                marginBottom: 8,
+                background: "#ffffff",
+              }}
+            />
 
-                const handleFileSelect = async (e) => {
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 11.5, color: "#94a3b8", fontWeight: 600 }}>OR</span>
+              <input
+                ref={(el) => { fileInputRefs.current["zip_package"] = el; }}
+                type="file"
+                accept=".zip"
+                style={{ display: "none" }}
+                onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
-                  setUploadingEvidence((prev) => ({ ...prev, [ev.id]: true }));
+                  setUploadingEvidence((prev) => ({ ...prev, zip_package: true }));
                   const { data, error } = await transactions.uploadEvidenceFile(file);
-                  setUploadingEvidence((prev) => ({ ...prev, [ev.id]: false }));
+                  setUploadingEvidence((prev) => ({ ...prev, zip_package: false }));
                   if (error) {
-                    setErrorMsg(`File upload failed: ${error}`);
+                    setErrorMsg(`ZIP upload failed: ${error}`);
                     return;
                   }
                   const backendBase = import.meta.env.VITE_API_URL
                     ? import.meta.env.VITE_API_URL.replace("/api", "")
                     : "http://localhost:4000";
                   const fullUrl = `${backendBase}${data.url}`;
-                  updateEvidenceUrl(ev.id, fullUrl);
-                  setUploadedFileNames((prev) => ({ ...prev, [ev.id]: data.original_name }));
-                  // Reset file input so the same file can be re-selected
-                  if (fileInputRefs.current[ev.id]) fileInputRefs.current[ev.id].value = "";
-                };
+                  updateEvidenceUrl("zip_package", fullUrl);
+                  setUploadedFileNames((prev) => ({ ...prev, zip_package: data.original_name }));
+                }}
+                disabled={uploadingEvidence["zip_package"] || isSubmitting}
+              />
+              <button
+                type="button"
+                disabled={uploadingEvidence["zip_package"] || isSubmitting}
+                onClick={() => fileInputRefs.current["zip_package"]?.click()}
+                style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  border: "1.5px dashed #2563eb",
+                  borderRadius: 8,
+                  background: "#eff6ff",
+                  padding: "6px 12px",
+                  fontSize: 12,
+                  color: "#1d4ed8",
+                  cursor: uploadingEvidence["zip_package"] || isSubmitting ? "not-allowed" : "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                {uploadingEvidence["zip_package"] ? (
+                  <><Spin size={12} color="#1d4ed8" /> Uploading ZIP…</>
+                ) : (
+                  <><span className="msym" style={{ fontSize: 16 }}>attach_file</span> Attach ZIP Package</>
+                )}
+              </button>
 
-                return (
-                  <div key={ev.id}>
-                    <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
-                      <span className="msym" style={{ fontSize: 14, verticalAlign: "middle", marginRight: 4 }}>{ev.icon}</span>
-                      {ev.label}
-                    </label>
-
-                    {/* URL input */}
-                    <input
-                      type="url"
-                      placeholder={ev.placeholder || "https://..."}
-                      value={currentUrl}
-                      onChange={(e) => {
-                        updateEvidenceUrl(ev.id, e.target.value);
-                        if (e.target.value === "") setUploadedFileNames((prev) => ({ ...prev, [ev.id]: null }));
-                      }}
-                      style={{
-                        width: "100%",
-                        borderRadius: 8,
-                        border: "1px solid #cbd5e1",
-                        padding: "9px 12px",
-                        fontSize: 13,
-                        boxSizing: "border-box",
-                        marginBottom: 6,
-                      }}
-                    />
-
-                    {/* OR divider + file upload button */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: 11.5, color: "#94a3b8", fontWeight: 600 }}>OR</span>
-                      <input
-                        ref={(el) => { fileInputRefs.current[ev.id] = el; }}
-                        type="file"
-                        accept="image/*,.pdf,.zip,.txt,.md"
-                        style={{ display: "none" }}
-                        onChange={handleFileSelect}
-                        disabled={isUploading || isSubmitting}
-                      />
-                      <button
-                        type="button"
-                        disabled={isUploading || isSubmitting}
-                        onClick={() => fileInputRefs.current[ev.id]?.click()}
-                        style={{
-                          display: "flex", alignItems: "center", gap: 5,
-                          border: "1.5px dashed #94a3b8",
-                          borderRadius: 8,
-                          background: "#f8fafc",
-                          padding: "6px 12px",
-                          fontSize: 12,
-                          color: "#334155",
-                          cursor: isUploading || isSubmitting ? "not-allowed" : "pointer",
-                          fontWeight: 600,
-                          transition: "border-color .15s",
-                        }}
-                      >
-                        {isUploading ? (
-                          <><Spin size={12} color="#334155" /> Uploading…</>
-                        ) : (
-                          <><span className="msym" style={{ fontSize: 14 }}>attach_file</span> Attach File</>
-                        )}
-                      </button>
-
-                      {/* Uploaded file badge */}
-                      {uploadedName && currentUrl && (
-                        <span style={{
-                          display: "flex", alignItems: "center", gap: 4,
-                          background: "#d1fae5", color: "#047857",
-                          borderRadius: 20, padding: "3px 10px", fontSize: 11.5, fontWeight: 600,
-                        }}>
-                          <span className="msym" style={{ fontSize: 13 }}>check_circle</span>
-                          {uploadedName.length > 28 ? uploadedName.slice(0, 26) + "…" : uploadedName}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              updateEvidenceUrl(ev.id, "");
-                              setUploadedFileNames((prev) => ({ ...prev, [ev.id]: null }));
-                            }}
-                            style={{ background: "none", border: "none", color: "#047857", cursor: "pointer", padding: 0, fontSize: 13, lineHeight: 1, marginLeft: 2 }}
-                          >×</button>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+              {uploadedFileNames["zip_package"] && evidenceMap["zip_package"]?.url && (
+                <span style={{
+                  display: "flex", alignItems: "center", gap: 4,
+                  background: "#d1fae5", color: "#047857",
+                  borderRadius: 20, padding: "3px 10px", fontSize: 11.5, fontWeight: 600,
+                }}>
+                  <span className="msym" style={{ fontSize: 13 }}>check_circle</span>
+                  {uploadedFileNames["zip_package"]}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateEvidenceUrl("zip_package", "");
+                      setUploadedFileNames((prev) => ({ ...prev, zip_package: null }));
+                    }}
+                    style={{ background: "none", border: "none", color: "#047857", cursor: "pointer", padding: 0, fontSize: 13, marginLeft: 2 }}
+                  >&times;</button>
+                </span>
+              )}
             </div>
           </div>
 
-          {/* Section 3: Custom Fields (if configured for category e.g. Cyber findings, AI metrics) */}
-          {Array.isArray(catConfig.customFields) && catConfig.customFields.length > 0 && (
-            <div style={{ marginBottom: 24 }}>
-              <div style={{ fontWeight: 700, fontSize: 14, color: T.primary, marginBottom: 4 }}>
-                3. Category Metrics & Details
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                {catConfig.customFields.map((cf) => (
-                  <div key={cf.id}>
-                    <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
-                      {cf.label}
-                    </label>
-                    {cf.type === "select" ? (
-                      <select
-                        value={customFieldsMap[cf.id] || ""}
-                        onChange={(e) => updateCustomField(cf.id, e.target.value)}
-                        style={{
-                          width: "100%",
-                          borderRadius: 8,
-                          border: "1px solid #cbd5e1",
-                          padding: "8px 10px",
-                          fontSize: 12.5,
-                          background: "#fff",
-                        }}
-                      >
-                        {cf.options.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type={cf.type === "number" ? "number" : "text"}
-                        value={customFieldsMap[cf.id] ?? ""}
-                        onChange={(e) => updateCustomField(cf.id, e.target.value)}
-                        style={{
-                          width: "100%",
-                          borderRadius: 8,
-                          border: "1px solid #cbd5e1",
-                          padding: "8px 10px",
-                          fontSize: 12.5,
-                          boxSizing: "border-box",
-                        }}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
+          {/* Artifact 2: Project Summary & Implementation Notes */}
+          <div
+            style={{
+              background: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              borderRadius: 14,
+              padding: "16px",
+              marginBottom: 20,
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: 13.5, color: "#0f172a", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+              <span className="msym" style={{ fontSize: 20, color: "#16a34a" }}>description</span>
+              2. Project Summary & Implementation Notes (Text Explanation)
             </div>
-          )}
-
-          {/* Section 4: Testing & QA */}
-          {catConfig.testing?.enabled && (
-            <div style={{ marginBottom: 24 }}>
-              <div style={{ fontWeight: 700, fontSize: 14, color: T.primary, marginBottom: 4 }}>
-                {catConfig.customFields?.length ? "4. Testing & QA" : "3. Testing & QA"}
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>{catConfig.testing.label}</span>
-                <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 13 }}>
-                  <input
-                    type="radio"
-                    name="testingRadio"
-                    checked={testingInfo.performed}
-                    onChange={() => setTestingInfo((t) => ({ ...t, performed: true }))}
-                  />
-                  Yes
-                </label>
-                <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 13 }}>
-                  <input
-                    type="radio"
-                    name="testingRadio"
-                    checked={!testingInfo.performed}
-                    onChange={() => setTestingInfo((t) => ({ ...t, performed: false }))}
-                  />
-                  No
-                </label>
-              </div>
-
-              {testingInfo.performed && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <input
-                    type="text"
-                    placeholder={catConfig.testing.summaryPlaceholder}
-                    value={testingInfo.summary}
-                    onChange={(e) => setTestingInfo((t) => ({ ...t, summary: e.target.value }))}
-                    style={{
-                      width: "100%",
-                      borderRadius: 8,
-                      border: "1px solid #cbd5e1",
-                      padding: "8px 12px",
-                      fontSize: 12.5,
-                      boxSizing: "border-box",
-                    }}
-                  />
-                  <input
-                    type="url"
-                    placeholder={catConfig.testing.reportUrlPlaceholder}
-                    value={testingInfo.reportUrl}
-                    onChange={(e) => setTestingInfo((t) => ({ ...t, reportUrl: e.target.value }))}
-                    style={{
-                      width: "100%",
-                      borderRadius: 8,
-                      border: "1px solid #cbd5e1",
-                      padding: "8px 12px",
-                      fontSize: 12.5,
-                      boxSizing: "border-box",
-                    }}
-                  />
-                </div>
-              )}
+            <div style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>
+              Provide a clear text explanation describing what was built, feature overview, setup/installation instructions, and verification notes.
             </div>
-          )}
 
-          {/* Section 5: General Release Notes */}
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: T.primary, marginBottom: 4 }}>
-              Submission Summary / Release Notes
-            </label>
             <textarea
-              placeholder="Provide a general summary describing what was achieved in this milestone..."
+              placeholder="Type or paste your project overview, implementation details, setup instructions, and feature summary here..."
               value={providerSummary}
-              onChange={(e) => setProviderSummary(e.target.value)}
+              onChange={(e) => {
+                const textVal = e.target.value;
+                setProviderSummary(textVal);
+                updateItemClaim("d2", textVal);
+                updateItemClaim("d1", textVal ? "ZIP package provided in Artifact #1" : "");
+              }}
               style={{
                 width: "100%",
                 borderRadius: 10,
                 border: "1px solid #cbd5e1",
-                padding: "10px 12px",
+                padding: "12px 14px",
                 fontSize: 13,
                 resize: "vertical",
-                minHeight: 70,
+                minHeight: 110,
                 fontFamily: "inherit",
                 boxSizing: "border-box",
+                background: "#ffffff",
+                lineHeight: 1.5,
               }}
             />
           </div>
@@ -605,27 +453,19 @@ export default function SubmitDeliverableModal({ job, activeMilestone, onClose, 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <div style={{ fontWeight: 700, fontSize: 13, color: "#0f172a", display: "flex", alignItems: "center", gap: 6 }}>
                 <span className="msym" style={{ fontSize: 16, color: "#0284c7" }}>smart_toy</span>
-                AI Submission Readiness Pre-Check ({catConfig.label})
+                AI Submission Readiness Pre-Check
               </div>
               <span style={{ fontSize: 12, fontWeight: 800, color: readiness.pct >= 75 ? "#059669" : "#d97706" }}>
                 {readiness.pct}% Readiness
               </span>
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", fontSize: 11.5 }}>
-              <span style={{ padding: "3px 8px", borderRadius: 12, fontWeight: 600, background: readiness.addressed === readiness.total ? "#d1fae5" : "#fef3c7", color: readiness.addressed === readiness.total ? "#047857" : "#b45309" }}>
-                {readiness.addressed === readiness.total ? "✓" : "⚠"} {readiness.addressed}/{readiness.total} Scope Items Addressed
+              <span style={{ padding: "3px 8px", borderRadius: 12, fontWeight: 600, background: evidenceMap["zip_package"]?.url ? "#d1fae5" : "#fef3c7", color: evidenceMap["zip_package"]?.url ? "#047857" : "#b45309" }}>
+                {evidenceMap["zip_package"]?.url ? "✓" : "⚠"} ZIP Package Attached
               </span>
-              {(!readiness.warnings || readiness.warnings.length === 0) ? (
-                <span style={{ padding: "3px 8px", borderRadius: 12, fontWeight: 600, background: "#d1fae5", color: "#047857" }}>
-                  ✓ Recommended Evidence Attached
-                </span>
-              ) : (
-                (readiness.warnings || []).map((w, idx) => (
-                  <span key={idx} style={{ padding: "3px 8px", borderRadius: 12, fontWeight: 600, background: "#fef3c7", color: "#b45309" }}>
-                    ⚠ {w}
-                  </span>
-                ))
-              )}
+              <span style={{ padding: "3px 8px", borderRadius: 12, fontWeight: 600, background: providerSummary.trim().length > 10 ? "#d1fae5" : "#fef3c7", color: providerSummary.trim().length > 10 ? "#047857" : "#b45309" }}>
+                {providerSummary.trim().length > 10 ? "✓" : "⚠"} Text Explanation Provided
+              </span>
             </div>
           </div>
 
@@ -642,7 +482,7 @@ export default function SubmitDeliverableModal({ job, activeMilestone, onClose, 
               ) : (
                 <>
                   <span className="msym" style={{ fontSize: 16 }}>upload</span>
-                  Submit {catConfig.label} Deliverable
+                  Submit Project Deliverables
                 </>
               )}
             </Btn>
