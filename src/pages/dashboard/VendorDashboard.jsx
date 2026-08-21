@@ -11,6 +11,7 @@ import KYC from "../../components/dashboard/KYCModal";
 import PhoneVerifyModal from "../../components/dashboard/PhoneVerifyModal";
 import ReviewModal from "../../components/dashboard/ReviewModal";
 import SubmitDeliverableModal from "../../components/dashboard/SubmitDeliverableModal";
+import SubmittedDeliverablesViewer from "../../components/dashboard/SubmittedDeliverablesViewer";
 import { users, transactions, wallet } from "../../utils/api";
 import { sseEmitter } from "../../utils/useSSE";
 
@@ -352,6 +353,9 @@ export default function VendorDashboard({ user, onLogout, navigate, onUserUpdate
                               ))}
                             </div>
                           )}
+
+                          {/* Submitted Deliverables Viewer */}
+                          <SubmittedDeliverablesViewer tx={job} />
 
                           {/* Submission History */}
                           {(job.milestones || []).some(m => (m.submissions || []).length > 0) && (

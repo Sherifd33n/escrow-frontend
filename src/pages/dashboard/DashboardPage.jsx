@@ -12,6 +12,7 @@ import DisputeModal from "../../components/dashboard/DisputeModal";
 import AdminPanel from "../../components/dashboard/AdminPanel";
 import SettingsTab from "../../components/dashboard/SettingsTab";
 import WalletTab from "../../components/dashboard/WalletTab";
+import SubmittedDeliverablesViewer from "../../components/dashboard/SubmittedDeliverablesViewer";
 
 const Dashboard=({user,onLogout})=>{
   const [tab,setTab]=useState("transactions");
@@ -265,6 +266,7 @@ const Dashboard=({user,onLogout})=>{
                   </div>
                 </div>
                 <div style={{padding:"18px 16px"}}>
+                  <SubmittedDeliverablesViewer tx={det} />
                   <div style={{fontWeight:700,fontSize:12.5,color:T.primary,marginBottom:14,textTransform:"uppercase",letterSpacing:".06em"}}>Escrow Timeline</div>
                   {["Project created","Contract generated","Escrow funded","Provider working","Deliverable submitted","AI audit completed","Client review","Payment released"].map((s,i,a)=>(
                     <div key={i} style={{display:"flex",gap:10,marginBottom:i<a.length-1?12:0}}>

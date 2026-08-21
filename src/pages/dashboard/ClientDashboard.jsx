@@ -12,6 +12,7 @@ import SettingsTab from "../../components/dashboard/SettingsTab";
 import WalletTab from "../../components/dashboard/WalletTab";
 import SubscriptionsTab from "../../components/dashboard/SubscriptionsTab";
 import ReviewModal from "../../components/dashboard/ReviewModal";
+import SubmittedDeliverablesViewer from "../../components/dashboard/SubmittedDeliverablesViewer";
 import { users, transactions, wallet } from "../../utils/api";
 import { sseEmitter } from "../../utils/useSSE";
 
@@ -378,15 +379,15 @@ export default function ClientDashboard({ user, onLogout, navigate, onUserUpdate
                   {detail?.id === tx.id && (
                     <div style={{ marginTop:14, paddingTop:14, borderTop:"1px solid #f0f0f0", display:"flex", flexDirection:"column", gap:10 }}>
 
-                      {/* Submitted Deliverable Review Box */}
+                      {/* Submitted Deliverables & Files Viewer */}
+                      <SubmittedDeliverablesViewer tx={tx} />
+
+                      {/* Submitted Deliverable Review Action Box */}
                       {tx.status === "inspection" && (
                         <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 14px", fontSize: 13, color: "#166534", width: "100%" }} onClick={e => e.stopPropagation()}>
-                          <div style={{ fontWeight: 700, fontSize: 14, color: "#15803d", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                          <div style={{ fontWeight: 700, fontSize: 14, color: "#15803d", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
                             <span className="msym" style={{ fontSize: 18 }}>assignment_turned_in</span>
                             Deliverable Submitted for Your Review
-                          </div>
-                          <div style={{ fontSize: 12.5, color: "#1e293b", background: "#fff", border: "1px solid #cbd5e1", borderRadius: 8, padding: "10px 12px", marginBottom: 10, lineHeight: 1.5 }}>
-                            <strong>Provider Note:</strong> {(tx.milestones || []).find(m => m.deliverable_note)?.deliverable_note || "Deliverable submitted for review."}
                           </div>
 
                           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
