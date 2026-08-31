@@ -144,18 +144,59 @@ const SettingsTab = ({ user, onUserUpdate, onLogout }) => {
     setTimeout(() => setProfileMsg(null), 3000);
   };
 
-  // Toggle 2FA
-  const handleToggleTwoFA = async () => {
-    const newVal = !twoFA;
-    setTwoFA(newVal);
-    const { data, error } = await users.updateProfile({
-      two_factor_enabled: newVal,
-    });
+  // 2FA modal state
+  const [show2FAEnable, setShow2FAEnable] = useState(false);
+  const [show2FADisable, setShow2FADisable] = useState(false);
+  const [twoFACode, setTwoFACode] = useState("");
+  const [twoFAPw, setTwoFAPw] = useState("");
+  const [twoFAErr, setTwoFAErr] = useState("");
+  const [twoFALd, setTwoFALd] = useState(false);
+
+  // Start 2FA Enable Flow
+  const handleStart2FAEnable = async () => {
+    setTwoFAErr("");
+    setTwoFALd(true);
+    const { error } = await users.send2FAOTP();
+    setTwoFALd(false);
     if (error) {
-      setTwoFA(!newVal); // rollback
       alert(error);
-    } else if (data?.user && onUserUpdate) {
-      onUserUpdate(data.user);
+    } else {
+      setShow2FAEnable(true);
+      setShow2FADisable(false);
+    }
+  };
+
+  // Confirm 2FA Enable
+  const handleConfirm2FAEnable = async () => {
+    if (!twoFACode || twoFACode.length < 6) return setTwoFAErr("Please enter 6-digit code.");
+    setTwoFAErr("");
+    setTwoFALd(true);
+    const { data, error } = await users.enable2FA(twoFACode);
+    setTwoFALd(false);
+    if (error) {
+      setTwoFAErr(error);
+    } else {
+      setTwoFA(true);
+      setShow2FAEnable(false);
+      setTwoFACode("");
+      if (data?.user && onUserUpdate) onUserUpdate(data.user);
+    }
+  };
+
+  // Confirm 2FA Disable with Password
+  const handleConfirm2FADisable = async () => {
+    if (!twoFAPw) return setTwoFAErr("Please enter your current password.");
+    setTwoFAErr("");
+    setTwoFALd(true);
+    const { data, error } = await users.disable2FA(twoFAPw);
+    setTwoFALd(false);
+    if (error) {
+      setTwoFAErr(error);
+    } else {
+      setTwoFA(false);
+      setShow2FADisable(false);
+      setTwoFAPw("");
+      if (data?.user && onUserUpdate) onUserUpdate(data.user);
     }
   };
 
@@ -518,12 +559,60 @@ const SettingsTab = ({ user, onUserUpdate, onLogout }) => {
                     Two-Factor Auth
                   </div>
                 </div>
-                <p style={{ fontSize: 13, color: T.gray500, lineHeight: 1.7 }}>
-                  Add an extra layer of security. A code from your authenticator
-                  app is required at each login.
+                  <p style={{ fontSize: 13, color: T.gray500, lineHeight: 1.7 }}>
+                  Add an extra layer of security. A 6-digit verification code is required at each login.
                 </p>
               </div>
-              {twoFA ? (
+
+              {twoFAErr && (
+                <div style={{ background: "#ffdad6", borderRadius: 8, padding: "8px 12px", fontSize: 12.5, color: "#93000a" }}>
+                  {twoFAErr}
+                </div>
+              )}
+
+              {show2FAEnable ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, background: T.offWhite, padding: 12, borderRadius: 10 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: T.primary }}>
+                    Enter 6-digit code sent to your email:
+                  </div>
+                  <input
+                    style={{ ...fs, background: T.white, textAlign: "center", letterSpacing: 4, fontWeight: 700 }}
+                    maxLength={6}
+                    placeholder="000000"
+                    value={twoFACode}
+                    onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, ""))}
+                  />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <Btn variant="primary" style={{ fontSize: 12, padding: "6px 12px" }} disabled={twoFALd} onClick={handleConfirm2FAEnable}>
+                      {twoFALd ? <Spin /> : "Verify & Enable"}
+                    </Btn>
+                    <button onClick={() => setShow2FAEnable(false)} style={{ background: "none", border: "none", cursor: "pointer", color: T.gray500, fontSize: 12 }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : show2FADisable ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, background: T.offWhite, padding: 12, borderRadius: 10 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: T.primary }}>
+                    Enter your current password to disable 2FA:
+                  </div>
+                  <input
+                    type="password"
+                    style={{ ...fs, background: T.white }}
+                    placeholder="••••••••"
+                    value={twoFAPw}
+                    onChange={(e) => setTwoFAPw(e.target.value)}
+                  />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <Btn variant="primary" style={{ fontSize: 12, padding: "6px 12px", background: T.red, borderColor: T.red }} disabled={twoFALd} onClick={handleConfirm2FADisable}>
+                      {twoFALd ? <Spin /> : "Confirm Disable"}
+                    </Btn>
+                    <button onClick={() => setShow2FADisable(false)} style={{ background: "none", border: "none", cursor: "pointer", color: T.gray500, fontSize: 12 }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : twoFA ? (
                 <div
                   style={{
                     display: "flex",
@@ -554,12 +643,12 @@ const SettingsTab = ({ user, onUserUpdate, onLogout }) => {
                         2FA Enabled
                       </div>
                       <div style={{ fontSize: 11.5, color: T.green }}>
-                        Authenticator app connected
+                        Email OTP verification active
                       </div>
                     </div>
                   </div>
                   <button
-                    onClick={handleToggleTwoFA}
+                    onClick={() => { setTwoFAErr(""); setShow2FADisable(true); }}
                     style={{
                       background: "none",
                       border: "none",
@@ -581,9 +670,10 @@ const SettingsTab = ({ user, onUserUpdate, onLogout }) => {
                     padding: "9px 16px",
                     alignSelf: "flex-start",
                   }}
-                  onClick={handleToggleTwoFA}
+                  disabled={twoFALd}
+                  onClick={handleStart2FAEnable}
                 >
-                  Enable 2FA
+                  {twoFALd ? <Spin /> : "Enable 2FA"}
                 </Btn>
               )}
             </div>

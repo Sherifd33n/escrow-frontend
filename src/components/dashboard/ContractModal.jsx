@@ -384,6 +384,7 @@ const ContractModal = ({ tx, scope, user, onClose, onScopeUpdated }) => {
         <ScopeModal
           catLabel={category}
           currentAmount={totalAmt}
+          transactionId={tx?.realId || tx?.id}
           onClose={() => setShowScopeModal(false)}
           onApply={handleApplyNewScope}
         />

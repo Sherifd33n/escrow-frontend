@@ -319,13 +319,14 @@ export default function ServicesPage({ navigate, user }) {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [subscribedPlan, setSubscribedPlan] = useState(null);
   const [filterCat, setFilterCat] = useState("all");
-  const [successPlan, setSuccessPlan] = useState(null);
 
   useEffect(() => {
     if (user) {
       subscriptions.getCurrent().then(({ data }) => {
-        if (data && data.subscription) {
+        if (data && data.subscription && data.subscription.status === "active") {
           setSubscribedPlan(data.subscription.plan);
+        } else {
+          setSubscribedPlan(null);
         }
       }).catch(() => {});
     }
@@ -345,15 +346,22 @@ export default function ServicesPage({ navigate, user }) {
   };
 
   const handleConfirm = async (plan) => {
-    const { error } = await subscriptions.upgrade(plan.id, billing, "card");
+    const { data, error } = await subscriptions.initiatePayment(plan.id, billing);
     if (error) {
       alert(error);
       return;
     }
-    setSubscribedPlan(plan.id);
-    setSelectedPlan(null);
-    setSuccessPlan(plan);
-    setTimeout(() => setSuccessPlan(null), 3500);
+    if (data && data.paymentMethod === "wallet") {
+      setSubscribedPlan(plan.id);
+      setSelectedPlan(null);
+      alert(`Successfully subscribed to ${plan.name} Plan using your wallet balance!`);
+    } else if (data && data.authorization_url) {
+      sessionStorage.setItem("sub_pending_reference", data.reference);
+      sessionStorage.setItem("sub_pending_plan", plan.name);
+      window.location.href = data.authorization_url;
+    } else {
+      alert("Unable to initialise payment. Please try again.");
+    }
   };
 
   const handleBook = () => {
@@ -409,24 +417,6 @@ export default function ServicesPage({ navigate, user }) {
           )}
         </div>
       </header>
-
-      {/* ─── Success Toast ─── */}
-      {successPlan && (
-        <div style={{position:"fixed",top:80,left:"50%",transform:"translateX(-50%)",
-          background:"#001637",color:"#fff",borderRadius:14,padding:"14px 24px",
-          display:"flex",alignItems:"center",gap:12,zIndex:300,
-          boxShadow:"0 8px 32px rgba(0,0,0,.25)",animation:"fadeUp .3s ease",whiteSpace:"nowrap"}}>
-          <div style={{width:36,height:36,borderRadius:10,
-            background:`linear-gradient(135deg,${successPlan.gradient.join(",")})`,
-            display:"flex",alignItems:"center",justifyContent:"center"}}>
-            <span className="msym" style={{fontSize:20,color:"#fff"}}>{successPlan.icon}</span>
-          </div>
-          <div>
-            <div style={{fontWeight:700,fontSize:14}}>🎉 {successPlan.name} Plan Activated!</div>
-            <div style={{fontSize:12,color:"rgba(255,255,255,.7)"}}>Your subscription is now active</div>
-          </div>
-        </div>
-      )}
 
       {/* ─── PLANS TAB ─── */}
       {tab === "plans" && (

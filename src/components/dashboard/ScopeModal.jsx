@@ -3,7 +3,7 @@ import { T, fs } from "../../tokens";
 import { Btn, Spin, FormField as F } from "../../components/ui";
 import { ai } from "../../utils/api";
 
-const ScopeModal = ({ catLabel, currentAmount, onClose, onApply }) => {
+const ScopeModal = ({ catLabel, currentAmount, transactionId, onClose, onApply }) => {
   const [desc, setDesc] = useState("");
   const [ld, setLd] = useState(false);
   const [res, setRes] = useState(null);
@@ -16,7 +16,7 @@ const ScopeModal = ({ catLabel, currentAmount, onClose, onApply }) => {
   const gen = async () => {
     if (!desc.trim()) return;
     setLd(true);
-    const { data, error } = await ai.generateScope(catLabel, desc.trim());
+    const { data, error } = await ai.generateScope(catLabel, desc.trim(), transactionId);
     if (error) {
       alert(error);
       setLd(false);

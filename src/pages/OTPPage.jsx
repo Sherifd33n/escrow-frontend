@@ -37,7 +37,9 @@ const OTPPage = ({ pendingUser, onSuccess, navigate }) => {
     setLd(true);
     setErr("");
     
-    const { data, error } = await auth.verifyOTP(pendingUser?.id, code);
+    const { data, error } = pendingUser?.twoFactor
+      ? await auth.verify2FA(pendingUser?.id, code)
+      : await auth.verifyOTP(pendingUser?.id, code);
     setLd(false);
     
     if (error) {
@@ -71,11 +73,11 @@ const OTPPage = ({ pendingUser, onSuccess, navigate }) => {
     <AuthShell navigate={navigate}>
       <div style={{width:"100%",maxWidth:420,textAlign:"center"}}>
         <div style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:64,height:64,borderRadius:18,background:"linear-gradient(135deg,#001637,#172b4d)",marginBottom:18,boxShadow:"0 8px 24px rgba(0,22,55,.22)"}}>
-          <span className="msym" style={{fontSize:30,color:"#fff"}}>mark_email_read</span>
+          <span className="msym" style={{fontSize:30,color:"#fff"}}>{pendingUser?.twoFactor ? "verified_user" : "mark_email_read"}</span>
         </div>
-        <h1 style={{fontSize:26,fontWeight:700,color:"#001637",marginBottom:8}}>Check your email</h1>
+        <h1 style={{fontSize:26,fontWeight:700,color:"#001637",marginBottom:8}}>{pendingUser?.twoFactor ? "Two-Factor Verification" : "Check your email"}</h1>
         <p style={{fontSize:14,color:"#44474e",lineHeight:1.7,marginBottom:28}}>
-          We sent a 6-digit code to<br/><strong style={{color:"#001637"}}>{pendingUser?.email||"your email"}</strong>
+          {pendingUser?.twoFactor ? "Enter the 6-digit 2FA code sent to" : "We sent a 6-digit code to"}<br/><strong style={{color:"#001637"}}>{pendingUser?.email||"your email"}</strong>
         </p>
         <div className="auth-card">
           {done?(
@@ -83,7 +85,7 @@ const OTPPage = ({ pendingUser, onSuccess, navigate }) => {
               <div style={{width:56,height:56,background:"#f0fdf4",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px"}}>
                 <span className="msym" style={{fontSize:30,color:"#1e9e5e"}}>check_circle</span>
               </div>
-              <div style={{fontWeight:700,fontSize:18,color:"#001637",marginBottom:5}}>Email verified!</div>
+              <div style={{fontWeight:700,fontSize:18,color:"#001637",marginBottom:5}}>{pendingUser?.twoFactor ? "2FA Verified!" : "Email verified!"}</div>
               <div style={{fontSize:13.5,color:"#75777f"}}>Taking you to your dashboard…</div>
             </div>
           ):(

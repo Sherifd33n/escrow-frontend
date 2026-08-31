@@ -158,6 +158,9 @@ export const auth = {
   verifyOTP: (userId, code) =>
     post("/auth/verify-otp", { userId, code }, false),
 
+  verify2FA: (userId, code) =>
+    post("/auth/verify-2fa", { userId, code }, false),
+
   resendOTP: (userId) => post("/auth/resend-otp", { userId }, false),
 
   forgotPassword: (email) => post("/auth/forgot-password", { email }, false),
@@ -336,6 +339,12 @@ export const users = {
 
   verifyPhoneOTP: (phone, code) => post("/users/phone/verify", { phone, code }),
 
+  send2FAOTP: () => post("/users/2fa/send-otp"),
+
+  enable2FA: (code) => post("/users/2fa/enable", { code }),
+
+  disable2FA: (password) => post("/users/2fa/disable", { password }),
+
   changePassword: (currentPassword, newPassword) =>
     patch("/users/change-password", { currentPassword, newPassword }),
 
@@ -353,22 +362,30 @@ export const subscriptions = {
   getPlans: () => get("/subscriptions/plans", false),
   getCurrent: () => get("/subscriptions/current"),
   getEntitlements: () => get("/subscriptions/entitlements"),
-  checkout: (planId, billingCycle) =>
-    post("/subscriptions/checkout", { planId, billingCycle }),
-  upgrade: (planId, billingCycle, paymentProvider, referenceId) =>
-    post("/subscriptions/upgrade", {
-      planId,
-      billingCycle,
-      paymentProvider,
-      referenceId,
-    }),
+
+  /**
+   * Initialise a Paystack payment for a subscription plan.
+   * Returns { authorization_url, reference, planId, billingCycle, amountUsd, amountNgn }.
+   * Frontend should redirect the user to authorization_url.
+   */
+  initiatePayment: (planId, billingCycle) =>
+    post("/subscriptions/initiate-payment", { planId, billingCycle }),
+
+  /**
+   * Verify a subscription payment reference and activate the plan.
+   * Called after Paystack redirects back with a reference.
+   */
+  verifyPayment: (reference) =>
+    post(`/subscriptions/verify-payment/${encodeURIComponent(reference)}`),
+
   cancel: () => post("/subscriptions/cancel"),
+  cancelPendingDowngrade: () => post("/subscriptions/cancel-pending-downgrade"),
 };
 
 // ─── AI SERVICES ────────────────────────────────────────────────
 export const ai = {
-  generateScope: (categoryLabel, description) =>
-    post("/ai/scope", { categoryLabel, description }),
+  generateScope: (categoryLabel, description, transactionId) =>
+    post("/ai/scope", { categoryLabel, description, transactionId }),
   runAudit: (data) => post("/ai/audit", data),
   getAudits: (transactionId) => get(`/ai/audits/${transactionId}`),
 };

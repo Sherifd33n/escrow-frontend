@@ -30,7 +30,14 @@ const LoginPage = ({ onSuccess, setPendingUser, navigate }) => {
       }
       return;
     }
-    
+
+    if (data?.twoFactorRequired && data?.user) {
+      setLd(false);
+      setPendingUser({ ...data.user, twoFactor: true });
+      navigate("otp");
+      return;
+    }
+
     saveToken(data.token);
     setLd(false);
     setDone(true);

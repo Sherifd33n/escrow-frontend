@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { T } from "../tokens";
 import { Btn, Spin } from "../components/ui";
-import { payments, wallet } from "../utils/api";
+import { payments, wallet, subscriptions } from "../utils/api";
 import { sseEmitter } from "../utils/useSSE";
 
 export default function PaystackCallback({ navigate }) {
@@ -9,6 +9,18 @@ export default function PaystackCallback({ navigate }) {
     const params = new URLSearchParams(window.location.search);
     return params.get("reference") || params.get("trxref") || "";
   });
+
+  // Detect if this callback is for a subscription payment (set by SubscriptionPage before redirect)
+  const [isSubscription] = useState(() => {
+    const pending = sessionStorage.getItem("sub_pending_reference");
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("reference") || params.get("trxref") || "";
+    return !!pending && pending === ref;
+  });
+  const [subscriptionPlanName] = useState(() =>
+    sessionStorage.getItem("sub_pending_plan") || ""
+  );
+
   const [loading, setLoading] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get("reference") || params.get("trxref");
@@ -27,7 +39,23 @@ export default function PaystackCallback({ navigate }) {
     let isMounted = true;
     const verify = async () => {
       try {
-        const { data, error: apiErr } = await payments.verify(reference);
+        let data, apiErr;
+
+        if (isSubscription) {
+          // Subscription payment: verify and activate plan server-side
+          const res = await subscriptions.verifyPayment(reference);
+          data = res.data;
+          apiErr = res.error;
+          // Clean up sessionStorage flags
+          sessionStorage.removeItem("sub_pending_reference");
+          sessionStorage.removeItem("sub_pending_plan");
+        } else {
+          // Wallet-funding payment
+          const res = await payments.verify(reference);
+          data = res.data;
+          apiErr = res.error;
+        }
+
         if (!isMounted) return;
         setLoading(false);
         if (apiErr) {
@@ -36,14 +64,20 @@ export default function PaystackCallback({ navigate }) {
           setError(data.message || "Payment was not completed or failed on Paystack.");
         } else {
           setResult(data);
-          sseEmitter.emit("wallet_update", data);
+          if (!isSubscription) {
+            sseEmitter.emit("wallet_update", data);
+          }
           // Clean query parameters from URL bar
           window.history.replaceState({}, document.title, window.location.pathname);
         }
       } catch {
         if (!isMounted) return;
         setLoading(false);
-        setError("Network connection issue while verifying payment. Your wallet will update automatically via webhook if payment was successful.");
+        setError(
+          isSubscription
+            ? "Network connection issue while verifying subscription payment. Your subscription will activate automatically via webhook if payment was successful."
+            : "Network connection issue while verifying payment. Your wallet will update automatically via webhook if payment was successful."
+        );
       }
     };
 
@@ -51,7 +85,9 @@ export default function PaystackCallback({ navigate }) {
     return () => {
       isMounted = false;
     };
-  }, [reference]);
+  }, [reference, isSubscription]);
+
+
 
   const handleReturn = async () => {
     try {
@@ -199,10 +235,14 @@ export default function PaystackCallback({ navigate }) {
 
             <div>
               <h3 style={{ fontSize: 22, fontWeight: 800, color: T.primary, marginBottom: 6 }}>
-                Deposit Successful!
+                {isSubscription
+                  ? (subscriptionPlanName ? `${subscriptionPlanName} Plan Activated!` : "Subscription Activated!")
+                  : "Deposit Successful!"}
               </h3>
               <p style={{ fontSize: 14, color: T.gray600, lineHeight: 1.5 }}>
-                Your payment was verified by Paystack and credited to your wallet balance.
+                {isSubscription
+                  ? "Your payment was verified by Paystack and your subscription plan is now active."
+                  : "Your payment was verified by Paystack and credited to your wallet balance."}
               </p>
             </div>
 
@@ -238,17 +278,31 @@ export default function PaystackCallback({ navigate }) {
 
               <div style={{ height: 1, background: T.gray200, margin: "2px 0" }} />
 
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: T.gray700 }}>Available Wallet Balance</span>
-                <span style={{ fontSize: 20, fontWeight: 800, color: T.green }}>
-                  ${parseFloat(result.balance || 0).toFixed(2)}
-                </span>
-              </div>
+              {isSubscription ? (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: T.gray700 }}>Active Plan</span>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: T.green }}>
+                    {subscriptionPlanName || result?.subscription?.plan || "Active"}
+                  </span>
+                </div>
+              ) : (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: T.gray700 }}>Available Wallet Balance</span>
+                  <span style={{ fontSize: 20, fontWeight: 800, color: T.green }}>
+                    ${parseFloat(result.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+              )}
             </div>
 
-            <Btn onClick={handleReturn} style={{ width: "100%", fontSize: 15, padding: "12px 0", marginTop: 6 }}>
-              <span className="msym" style={{ fontSize: 18 }}>account_balance_wallet</span>
-              Return to Wallet
+            <Btn
+              onClick={isSubscription ? () => navigate("subscription") : handleReturn}
+              style={{ width: "100%", fontSize: 15, padding: "12px 0", marginTop: 6 }}
+            >
+              <span className="msym" style={{ fontSize: 18 }}>
+                {isSubscription ? "workspace_premium" : "account_balance_wallet"}
+              </span>
+              {isSubscription ? "View My Subscription" : "Return to Wallet"}
             </Btn>
           </div>
         )}

@@ -1,12 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { PLANS } from "../data/constants";
 import { subscriptions } from "../utils/api";
 
-function PlanCard({ plan, billing, onSubscribe, currentPlan }) {
+function PlanCard({ plan, billing, onSubscribe, currentPlan, pendingPlan, loadingPlan }) {
   const [hovered, setHovered] = useState(false);
   const price    = billing === "annual" ? plan.annualPrice : plan.monthlyPrice;
   const saving   = Math.round(((plan.monthlyPrice - plan.annualPrice) / plan.monthlyPrice) * 100);
   const isOwned  = currentPlan === plan.id;
+  const isPendingDowngrade = pendingPlan === plan.id;
+  const isLoading = loadingPlan === plan.id;
   const gradStr  = `linear-gradient(135deg, ${plan.gradient.join(",")})`;
 
   return (
@@ -23,7 +25,7 @@ function PlanCard({ plan, billing, onSubscribe, currentPlan }) {
         transform: plan.popular ? "scale(1.03)" : hovered ? "scale(1.01)" : "scale(1)",
         transition:"all .25s ease",
         flex:"1 1 280px", minWidth:260, maxWidth:370,
-        border: isOwned ? "2px solid #006c47" : plan.popular ? "2px solid transparent" : "1px solid #e9e7eb",
+        border: isOwned ? "2px solid #006c47" : isPendingDowngrade ? "2px solid #d97706" : plan.popular ? "2px solid transparent" : "1px solid #e9e7eb",
       }}
     >
       {plan.popular && (
@@ -34,6 +36,11 @@ function PlanCard({ plan, billing, onSubscribe, currentPlan }) {
       {isOwned && (
         <div style={{ position:"absolute", top:18, left:18, background:"#006c47", color:"#fff", borderRadius:20, padding:"4px 14px", fontSize:11, fontWeight:800, zIndex:3 }}>
           ✓ ACTIVE
+        </div>
+      )}
+      {isPendingDowngrade && (
+        <div style={{ position:"absolute", top:18, left:18, background:"#d97706", color:"#fff", borderRadius:20, padding:"4px 14px", fontSize:11, fontWeight:800, zIndex:3 }}>
+          ⌛ SCHEDULED
         </div>
       )}
 
@@ -114,17 +121,26 @@ function PlanCard({ plan, billing, onSubscribe, currentPlan }) {
 
         {/* CTA Button */}
         <button
-          onClick={() => onSubscribe(plan)}
+          onClick={() => !isLoading && !(isOwned && !pendingPlan) && onSubscribe(plan)}
+          disabled={isLoading || (isOwned && !pendingPlan)}
           style={{
-            width:"100%", padding:"14px 0", borderRadius:12, border:"none", cursor:"pointer",
-            background: isOwned ? "#f0fdf4" : `linear-gradient(135deg, ${plan.gradient.join(",")})`,
-            color: isOwned ? "#006c47" : "#fff",
+            width:"100%", padding:"14px 0", borderRadius:12, border:"none",
+            cursor: (isOwned && !pendingPlan) || isLoading ? "default" : "pointer",
+            background: isOwned ? "#f0fdf4" : isPendingDowngrade ? "#fffbeb" : `linear-gradient(135deg, ${plan.gradient.join(",")})`,
+            color: isOwned ? "#006c47" : isPendingDowngrade ? "#d97706" : "#fff",
             fontSize:15, fontWeight:700, letterSpacing:"-.2px",
             transition:"opacity .2s",
+            opacity: isLoading ? 0.7 : 1,
             boxShadow: isOwned ? "none" : "0 4px 14px rgba(0,0,0,.15)",
           }}
         >
-          {isOwned ? "✓ Current Plan" : `Subscribe to ${plan.name}`}
+          {isOwned && !pendingPlan
+            ? "✓ Current Plan"
+            : isPendingDowngrade
+              ? "Scheduled (Click to Cancel)"
+              : isLoading
+                ? "Processing…"
+                : `Subscribe to ${plan.name}`}
         </button>
         {!isOwned && (
           <div style={{ textAlign:"center", fontSize:11.5, color:"#75777f", marginTop:10 }}>
@@ -139,36 +155,79 @@ function PlanCard({ plan, billing, onSubscribe, currentPlan }) {
 export default function SubscriptionPage({ navigate, user }) {
   const [billing, setBilling]     = useState("monthly");
   const [currentPlan, setCurrent] = useState(null);
-  const [success, setSuccess]     = useState(null);
+  const [pendingPlan, setPendingPlan] = useState(null);
+  const [loadingPlan, setLoadingPlan] = useState(null);
 
-  useEffect(() => {
+  const fetchSubscription = useCallback(() => {
     if (user) {
       subscriptions.getCurrent().then(({ data }) => {
-        if (data && data.subscription) {
+        if (data && data.subscription && data.subscription.status === "active") {
           setCurrent(data.subscription.plan);
+          setPendingPlan(data.subscription.pendingPlan || null);
+        } else {
+          setCurrent(null);
+          setPendingPlan(null);
         }
       }).catch(() => {});
     }
   }, [user]);
+
+  useEffect(() => {
+    fetchSubscription();
+  }, [fetchSubscription]);
 
   const handleSubscribe = async (plan) => {
     if (!user) {
       navigate("login");
       return;
     }
-    if (currentPlan === plan.id) return;
+    if (currentPlan === plan.id && !pendingPlan) return;
+    if (loadingPlan) return;
 
-    const { error } = await subscriptions.upgrade(plan.id, billing, "card");
+    // If the user clicks the SCHEDULED (pending downgrade) card, cancel the pending downgrade
+    if (pendingPlan === plan.id) {
+      setLoadingPlan(plan.id);
+      const { data, error } = await subscriptions.cancelPendingDowngrade();
+      setLoadingPlan(null);
+
+      if (error) {
+        alert(error);
+        return;
+      }
+
+      alert(data?.message || "Pending downgrade cancelled. You remain on your current plan.");
+      fetchSubscription();
+      return;
+    }
+
+    setLoadingPlan(plan.id);
+    const { data, error } = await subscriptions.initiatePayment(plan.id, billing);
+    setLoadingPlan(null);
 
     if (error) {
       alert(error);
       return;
     }
 
-    setCurrent(plan.id);
-    setSuccess(plan);
-    setTimeout(() => setSuccess(null), 3000);
+    if (data && data.isDowngrade) {
+      alert(data.message || `Downgrade to ${plan.name} scheduled for end of billing period.`);
+      fetchSubscription();
+    } else if (data && data.isCancellation) {
+      alert(data.message || `Pending downgrade cancelled.`);
+      fetchSubscription();
+    } else if (data && data.paymentMethod === "wallet") {
+      setCurrent(plan.id);
+      alert(data.message || `Successfully subscribed to ${plan.name} Plan using your wallet balance!`);
+      fetchSubscription();
+    } else if (data && data.authorization_url) {
+      sessionStorage.setItem("sub_pending_reference", data.reference);
+      sessionStorage.setItem("sub_pending_plan", plan.name);
+      window.location.href = data.authorization_url;
+    } else {
+      alert("Unable to process subscription request. Please try again.");
+    }
   };
+
 
   return (
     <div style={{ background:"#f5f3f6", minHeight:"100vh" }}>
@@ -191,14 +250,6 @@ export default function SubscriptionPage({ navigate, user }) {
           )}
         </div>
       </header>
-
-      {/* Success toast */}
-      {success && (
-        <div style={{ position:"fixed", top:72, right:20, background:"#006c47", color:"#fff", borderRadius:12, padding:"14px 20px", fontSize:14, fontWeight:600, zIndex:999, boxShadow:"0 8px 24px rgba(0,0,0,.2)", display:"flex", alignItems:"center", gap:10 }}>
-          <span className="msym" style={{ fontSize:20 }}>check_circle</span>
-          Subscribed to {success.name}!
-        </div>
-      )}
 
       <div style={{ maxWidth:1100, margin:"0 auto", padding:"40px 20px" }}>
 
@@ -229,7 +280,7 @@ export default function SubscriptionPage({ navigate, user }) {
         {/* Plan cards */}
         <div style={{ display:"flex", gap:20, justifyContent:"center", flexWrap:"wrap", alignItems:"stretch" }}>
           {PLANS.map(plan => (
-            <PlanCard key={plan.id} plan={plan} billing={billing} onSubscribe={handleSubscribe} currentPlan={currentPlan} />
+            <PlanCard key={plan.id} plan={plan} billing={billing} onSubscribe={handleSubscribe} currentPlan={currentPlan} pendingPlan={pendingPlan} loadingPlan={loadingPlan} />
           ))}
         </div>
 
