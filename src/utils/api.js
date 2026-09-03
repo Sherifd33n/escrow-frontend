@@ -169,6 +169,16 @@ export const auth = {
     post("/auth/reset-password", { token, newPassword }, false),
 
   me: () => get("/auth/me"),
+
+  logout: async () => {
+    try {
+      await post("/auth/logout", {});
+    } catch (e) {
+      console.warn("Server logout notification skipped:", e.message);
+    } finally {
+      clearToken();
+    }
+  },
 };
 
 // ─── TRANSACTIONS ────────────────────────────────────────────────
@@ -178,9 +188,16 @@ export const transactions = {
     return get(`/transactions${qs ? "?" + qs : ""}`);
   },
 
+  getAll: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return get(`/transactions${qs ? "?" + qs : ""}`);
+  },
+
   create: (data) => post("/transactions", data),
 
   get: (id) => get(`/transactions/${id}`),
+
+  cancel: (id, reason) => post(`/transactions/${id}/cancel`, { reason }),
 
   updateStatus: (id, status, extraBody = {}) =>
     patch(`/transactions/${id}/status`, { status, ...extraBody }),

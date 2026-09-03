@@ -69,11 +69,11 @@ export default function App() {
   useEffect(() => {
     const restoreSession = async () => {
       const token = sessionStorage.getItem("vp_token");
-      if (token && !user) {
+      if (token) {
         const { data, error } = await auth.me();
         if (data && !error) {
           setUser(data);
-        } else {
+        } else if (!user) {
           clearToken();
           setUser(null);
         }
@@ -81,7 +81,7 @@ export default function App() {
     };
 
     restoreSession();
-  }, [user]);
+  }, []);
 
   useEffect(() => {
     try {

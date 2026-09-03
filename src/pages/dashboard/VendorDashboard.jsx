@@ -68,11 +68,13 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
   const [kycStatus, setKycStatus] = useState(
     user?.kyc_tier > 1 || user?.is_verified ? "approved" : "none"
   );
+  const [kycTier, setKycTier] = useState(user?.kyc_tier || 1);
 
   const checkKYC = useCallback(async () => {
     try {
       const { data } = await users.getKYCStatus();
       if (data) {
+        if (data.tier) setKycTier(data.tier);
         if (data.status === "approved" || data.tier > 1) {
           setKycStatus("approved");
         } else if (data.status === "pending") {
@@ -498,7 +500,7 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
             {[
               { label:"Email Verified",  icon:"mail",     status:"approved", action:null },
               { label:"Phone Number",    icon:"phone",    status:phoneDone ? "approved" : "none", action:() => setShowPhoneVerify(true) },
-              { label:"Business Profile",icon:"business", status:user?.kyc_tier >= 3 ? "approved" : kycStatus === "pending" ? "pending" : kycStatus === "rejected" ? "rejected" : "none", action:() => setShowKYC(true) },
+              { label:"Business Profile",icon:"business", status:Math.max(kycTier, user?.kyc_tier || 1) >= 3 ? "approved" : kycStatus === "pending" ? "pending" : kycStatus === "rejected" ? "rejected" : "none", action:() => setShowKYC(true) },
               { label:"Government ID",   icon:"badge",    status:kycStatus, action:() => setShowKYC(true) },
               { label:"Portfolio Link",  icon:"link",     status:"none", action:() => {} },
             ].map(v => (
