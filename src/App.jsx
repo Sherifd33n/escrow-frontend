@@ -159,6 +159,60 @@ export default function App() {
   return (
     <>
       <style>{CSS}</style>
+      {/* Impersonation Banner (Commented out)
+      {sessionStorage.getItem("vp_admin_token") && (
+        <div
+          style={{
+            background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+            color: "#fff",
+            padding: "9px 18px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            fontSize: 13,
+            position: "sticky",
+            top: 0,
+            zIndex: 9999,
+            boxShadow: "0 2px 10px rgba(0,0,0,0.18)",
+            fontFamily: "'Inter', sans-serif",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 16 }}>👁️</span>
+            <span>
+              <strong>Impersonation Mode:</strong> Currently viewing as{" "}
+              <strong>{user?.name || "User"}</strong> ({user?.email}) · Role:{" "}
+              <span style={{ textTransform: "capitalize" }}>{user?.role || "Client"}</span>
+            </span>
+          </div>
+          <button
+            onClick={() => {
+              const adminTok = sessionStorage.getItem("vp_admin_token");
+              const adminUsr = sessionStorage.getItem("vp_admin_user");
+              sessionStorage.setItem("vp_token", adminTok);
+              if (adminUsr) sessionStorage.setItem("vp_user", adminUsr);
+              sessionStorage.removeItem("vp_admin_token");
+              sessionStorage.removeItem("vp_admin_user");
+              sessionStorage.setItem("vp_role", "admin");
+              window.location.replace("/");
+            }}
+            style={{
+              background: "#fff",
+              color: "#4f46e5",
+              border: "none",
+              padding: "5px 14px",
+              borderRadius: 6,
+              fontWeight: 700,
+              fontSize: 12,
+              cursor: "pointer",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
+            }}
+          >
+            ← Return to Admin Panel
+          </button>
+        </div>
+      )}
+      */}
       {page === "splash" && <SplashScreen onDone={() => navigate("home")} />}
       {page === "home" && (
         <HomePage navigate={navigate} user={user} onLogout={onLogout} />

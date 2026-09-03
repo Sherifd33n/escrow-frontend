@@ -537,18 +537,7 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
                   </div>
                 </div>
                 {v.status === "approved" ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize:11.5, fontWeight:700, color:"#006c47", background:"#f0fdf4", padding:"3px 10px", borderRadius:20 }}>✓ Verified</span>
-                    {v.action && (
-                      <button 
-                        onClick={v.action} 
-                        style={{ background: "none", border: "none", color: "#75777f", fontSize: 12, cursor: "pointer", textDecoration: "underline", padding: "2px 4px" }}
-                        title="Update link"
-                      >
-                        Edit
-                      </button>
-                    )}
-                  </div>
+                  <span style={{ fontSize:11.5, fontWeight:700, color:"#006c47", background:"#f0fdf4", padding:"3px 10px", borderRadius:20 }}>✓ Verified</span>
                 ) : v.status === "pending" ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontSize:11.5, fontWeight:700, color:"#d97706", background:"#fffbe6", border:"1px solid #fef08a", padding:"3px 10px", borderRadius:20 }}>⏳ Pending</span>

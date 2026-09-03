@@ -11,6 +11,31 @@ const BASE = (
   import.meta.env.VITE_API_URL || "http://localhost:4000/api"
 ).replace(/\/+$/, "");
 
+function formatApiErrorMessage(json, fallback) {
+  if (json?.error && typeof json.error === "string") return json.error;
+  if (json?.message && typeof json.message === "string") return json.message;
+  if (json?.code === "KYC_LEVEL_REQUIRED") {
+    const level = json.requiredKycLevel ? `Level ${json.requiredKycLevel}` : "";
+    return `Identity verification (${level}) is required to perform this action. Please complete KYC in your dashboard settings.`;
+  }
+  if (json?.code === "ACTIVE_DEAL_LIMIT_REACHED") {
+    return `You have reached your active deal limit for your plan. Please upgrade your subscription to create more transactions.`;
+  }
+  if (json?.code === "ESCROW_LIMIT_EXCEEDED") {
+    return `This transaction amount exceeds your subscription plan limit. Please upgrade your subscription or complete KYC.`;
+  }
+  if (json?.code === "AI_QUOTA_EXCEEDED") {
+    return `Monthly AI audit quota exceeded for your subscription plan. Please upgrade your plan to run more audits.`;
+  }
+  if (json?.code === "MULTI_CURRENCY_NOT_AVAILABLE") {
+    return `Multi-currency transactions require a Gold or Diamond subscription plan.`;
+  }
+  if (json?.requireKyc) {
+    return `Identity verification (KYC) is required before you can perform this action.`;
+  }
+  return fallback;
+}
+
 // Multipart form-data wrapper (for file uploads)
 async function requestMultipart(method, path, formData) {
   const headers = {};
@@ -39,7 +64,7 @@ async function requestMultipart(method, path, formData) {
     if (res.status === 403) {
       return {
         data: null,
-        error: json.error || "You don't have permission to perform this action.",
+        error: formatApiErrorMessage(json, "Action restricted. Please check your KYC verification or subscription plan."),
         code: json.code,
       };
     }
@@ -47,7 +72,7 @@ async function requestMultipart(method, path, formData) {
     if (!res.ok) {
       return {
         data: null,
-        error: json.error || `Request failed (${res.status})`,
+        error: formatApiErrorMessage(json, `Request failed (${res.status})`),
       };
     }
 
@@ -101,7 +126,7 @@ async function request(method, path, body, auth = true) {
     if (res.status === 403 && auth) {
       return {
         data: null,
-        error: json.error || "You don't have permission to perform this action.",
+        error: formatApiErrorMessage(json, "Action restricted. Please check your KYC verification or subscription plan."),
         code: json.code,
       };
     }
@@ -274,6 +299,8 @@ export const admin = {
   },
 
   deleteReview: (id) => del(`/admin/reviews/${id}`),
+
+  impersonateUser: (userId) => post(`/admin/impersonate/${userId}`),
 };
 
 // ─── WALLET ──────────────────────────────────────────────────────

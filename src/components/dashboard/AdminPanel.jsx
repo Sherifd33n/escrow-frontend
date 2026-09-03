@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { T, fs } from "../../tokens";
 import {
   Btn,
@@ -6,7 +6,7 @@ import {
   StatusBadge as SB,
   EvidenceViewer,
 } from "../../components/ui";
-import { MTX, CATS } from "../../data/constants";
+import { CATS } from "../../data/constants";
 import { users, admin, transactions } from "../../utils/api";
 import { sseEmitter } from "../../utils/useSSE";
 
@@ -23,13 +23,11 @@ const AdminPanel = ({ onBack, onLogout }) => {
   const [disputesLoading, setDisputesLoading] = useState(false);
 
   const [selectedDispute, setSelectedDispute] = useState(null);
-  const [loadingSingle, setLoadingSingle] = useState(false);
 
   const [platformTxs, setPlatformTxs] = useState([]);
   const [txsLoading, setTxsLoading] = useState(false);
 
   const [dashboardStats, setDashboardStats] = useState(null);
-  const [dashboardLoading, setDashboardLoading] = useState(false);
 
   const [usersList, setUsersList] = useState([]);
   const [userStats, setUserStats] = useState(null);
@@ -47,25 +45,23 @@ const AdminPanel = ({ onBack, onLogout }) => {
 
   // ─── DATA LOADING ──────────────────────────────────────────────────────────
 
-  const loadKYCQueue = () => {
-    setKycLoading(true);
+  const loadKYCQueue = useCallback(() => {
     users.getKYCQueue().then(({ data, error }) => {
       setKycLoading(false);
       if (!error) {
         setKycQueue(data || []);
       }
     });
-  };
+  }, []);
 
-  const loadPortfolioQueue = () => {
-    setPortfolioLoading(true);
+  const loadPortfolioQueue = useCallback(() => {
     users.getPortfolioQueue().then(({ data, error }) => {
       setPortfolioLoading(false);
       if (!error && data) {
         setPortfolioQueue(data || []);
       }
     });
-  };
+  }, []);
 
   const handleApprovePortfolio = (userId) => {
     users.approvePortfolio(userId).then(({ error }) => {
@@ -91,38 +87,33 @@ const AdminPanel = ({ onBack, onLogout }) => {
     });
   };
 
-  const loadDisputes = () => {
-    setDisputesLoading(true);
+  const loadDisputes = useCallback(() => {
     admin.getDisputes().then(({ data, error }) => {
       setDisputesLoading(false);
       if (!error && data) {
         setDisputesList(data.data || []);
       }
     });
-  };
+  }, []);
 
-  const loadDashboard = () => {
-    setDashboardLoading(true);
+  const loadDashboard = useCallback(() => {
     admin.getDashboard().then(({ data, error }) => {
-      setDashboardLoading(false);
       if (!error && data) {
         setDashboardStats(data);
       }
     });
-  };
+  }, []);
 
-  const loadPlatformTransactions = () => {
-    setTxsLoading(true);
+  const loadPlatformTransactions = useCallback(() => {
     admin.getTransactions({ limit: 50 }).then(({ data, error }) => {
       setTxsLoading(false);
       if (!error && data) {
         setPlatformTxs(data.data || []);
       }
     });
-  };
+  }, []);
 
-  const loadUsers = () => {
-    setUsersLoading(true);
+  const loadUsers = useCallback(() => {
     admin.getUsers({ limit: 50 }).then(({ data, error }) => {
       setUsersLoading(false);
       if (!error && data) {
@@ -130,10 +121,36 @@ const AdminPanel = ({ onBack, onLogout }) => {
         setUserStats(data.stats || null);
       }
     });
-  };
+  }, []);
 
-  const loadAdminReviews = (filters = adminReviewFilters) => {
-    setAdminReviewsLoading(true);
+  /*
+  const handleImpersonate = async (targetUser) => {
+    if (
+      !window.confirm(
+        `Log in as ${targetUser.name} (${targetUser.email})?\n\nYou will be able to view and interact with their dashboard, and you can return to the Admin Panel anytime.`
+      )
+    ) {
+      return;
+    }
+
+    const { data, error } = await admin.impersonateUser(targetUser.id);
+    if (error) {
+      alert(error);
+      return;
+    }
+
+    sessionStorage.setItem("vp_admin_token", sessionStorage.getItem("vp_token"));
+    sessionStorage.setItem("vp_admin_user", sessionStorage.getItem("vp_user") || "");
+    sessionStorage.setItem("vp_token", data.token);
+    sessionStorage.setItem("vp_user", JSON.stringify(data.user));
+    sessionStorage.setItem("vp_role", (data.user.role || "client").toLowerCase());
+    sessionStorage.removeItem("vp_admin_view");
+
+    window.location.replace("/");
+  };
+  */
+
+  const loadAdminReviews = useCallback((filters = adminReviewFilters) => {
     const activeFilters = {};
     Object.keys(filters).forEach((k) => {
       if (filters[k]) activeFilters[k] = filters[k];
@@ -144,7 +161,7 @@ const AdminPanel = ({ onBack, onLogout }) => {
         setAdminReviewsList(data || []);
       }
     });
-  };
+  }, [adminReviewFilters]);
 
   const handleDeleteReview = (id) => {
     if (!window.confirm("Are you sure you want to delete this review?")) return;
@@ -159,9 +176,7 @@ const AdminPanel = ({ onBack, onLogout }) => {
   };
 
   const loadSingleDispute = (id) => {
-    setLoadingSingle(true);
     admin.getDispute(id).then(({ data, error }) => {
-      setLoadingSingle(false);
       if (!error && data) {
         setSelectedDispute(data);
       } else {
@@ -178,7 +193,15 @@ const AdminPanel = ({ onBack, onLogout }) => {
     loadUsers();
     loadAdminReviews();
     loadPortfolioQueue();
-  }, []);
+  }, [
+    loadDashboard,
+    loadPlatformTransactions,
+    loadDisputes,
+    loadKYCQueue,
+    loadUsers,
+    loadAdminReviews,
+    loadPortfolioQueue,
+  ]);
 
   useEffect(() => {
     if (tab === "kyc") {
@@ -197,7 +220,16 @@ const AdminPanel = ({ onBack, onLogout }) => {
     } else if (tab === "reviews") {
       loadAdminReviews();
     }
-  }, [tab]);
+  }, [
+    tab,
+    loadKYCQueue,
+    loadPortfolioQueue,
+    loadDisputes,
+    loadDashboard,
+    loadPlatformTransactions,
+    loadUsers,
+    loadAdminReviews,
+  ]);
 
   // ── SSE: auto-refresh admin data on relevant events ───────────────────────
   useEffect(() => {
@@ -217,7 +249,7 @@ const AdminPanel = ({ onBack, onLogout }) => {
       offTx();
       offRev();
     };
-  }, []);
+  }, [loadKYCQueue, loadDisputes, loadDashboard, loadPlatformTransactions, loadAdminReviews]);
 
   // ─── ACTION HANDLERS ────────────────────────────────────────────────────────
 
@@ -255,7 +287,7 @@ const AdminPanel = ({ onBack, onLogout }) => {
   };
 
   const handleMoveToReview = (disputeId) => {
-    admin.reviewDispute(disputeId).then(({ data, error }) => {
+    admin.reviewDispute(disputeId).then(({ error }) => {
       if (error) {
         alert(error);
       } else {
@@ -266,7 +298,7 @@ const AdminPanel = ({ onBack, onLogout }) => {
     });
   };
 
-  const handleResolveDispute = (transactionId, disputeId) => {
+  const handleResolveDispute = (transactionId) => {
     const winnerInput = window.prompt(
       "Who is the winner? Enter 'buyer' or 'seller':",
     );
@@ -287,7 +319,7 @@ const AdminPanel = ({ onBack, onLogout }) => {
         winner,
         resolution: resolution.trim(),
       })
-      .then(({ data, error }) => {
+      .then(({ error }) => {
         if (error) {
           alert(error);
         } else {
@@ -1098,8 +1130,6 @@ const AdminPanel = ({ onBack, onLogout }) => {
                   borderRadius: 11,
                   display: "flex",
                   alignItems: "center",
-                  justifyValue: "center",
-                  alignItems: "center",
                   justifyContent: "center",
                 }}
               >
@@ -1477,6 +1507,7 @@ const AdminPanel = ({ onBack, onLogout }) => {
                         "KYC Status",
                         "Wallet Balance",
                         "Joined",
+                        // "Actions",
                       ].map((h) => (
                         <th
                           key={h}
@@ -1579,6 +1610,31 @@ const AdminPanel = ({ onBack, onLogout }) => {
                         >
                           {new Date(u.created_at).toLocaleDateString()}
                         </td>
+                        {/* <td style={{ padding: "11px 14px" }}>
+                          <button
+                            onClick={() => handleImpersonate(u)}
+                            style={{
+                              background: "linear-gradient(135deg, #1e1b4b, #3730a3)",
+                              color: "#fff",
+                              border: "none",
+                              borderRadius: 6,
+                              padding: "6px 12px",
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 5,
+                              whiteSpace: "nowrap",
+                            }}
+                            title={`Log in to dashboard as ${u.name}`}
+                          >
+                            <span className="msym" style={{ fontSize: 14 }}>
+                              login
+                            </span>
+                            Login As
+                          </button>
+                        </td> */}
                       </tr>
                     ))}
                   </tbody>
