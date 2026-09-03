@@ -356,6 +356,8 @@ export const users = {
 
   verifyPhoneOTP: (phone, code) => post("/users/phone/verify", { phone, code }),
 
+  verifyPortfolio: (url) => post("/users/portfolio/verify", { url }),
+
   send2FAOTP: () => post("/users/2fa/send-otp"),
 
   enable2FA: (code) => post("/users/2fa/enable", { code }),

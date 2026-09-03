@@ -8,6 +8,7 @@ import SettingsTab from "../../components/dashboard/SettingsTab";
 import WalletTab from "../../components/dashboard/WalletTab";
 import KYC from "../../components/dashboard/KYCModal";
 import PhoneVerifyModal from "../../components/dashboard/PhoneVerifyModal";
+import PortfolioModal from "../../components/dashboard/PortfolioModal";
 import ReviewModal from "../../components/dashboard/ReviewModal";
 import SubmitDeliverableModal from "../../components/dashboard/SubmitDeliverableModal";
 import SubmittedDeliverablesViewer from "../../components/dashboard/SubmittedDeliverablesViewer";
@@ -34,6 +35,9 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
   const [showContract, setShowContract] = useState(null);
   const [showKYC, setShowKYC] = useState(false);
   const [showPhoneVerify, setShowPhoneVerify] = useState(false);
+  const [showPortfolioModal, setShowPortfolioModal] = useState(false);
+  const [portfolioVerified, setPortfolioVerified] = useState(!!user?.portfolio_verified);
+  const [portfolioUrl, setPortfolioUrl] = useState(user?.portfolio_url || "");
   const [walletBalance, setWalletBalance] = useState(0);
   const [showReview, setShowReview] = useState(null);
   const [showSubmitModal, setShowSubmitModal] = useState(null);
@@ -99,6 +103,8 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
 
   useEffect(() => {
     if (user) {
+      setPortfolioVerified(!!user?.portfolio_verified);
+      setPortfolioUrl(user?.portfolio_url || "");
       const loadKyc = async () => {
         await checkKYC();
       };
@@ -502,7 +508,7 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
               { label:"Phone Number",    icon:"phone",    status:phoneDone ? "approved" : "none", action:() => setShowPhoneVerify(true) },
               { label:"Business Profile",icon:"business", status:Math.max(kycTier, user?.kyc_tier || 1) >= 3 ? "approved" : kycStatus === "pending" ? "pending" : kycStatus === "rejected" ? "rejected" : "none", action:() => setShowKYC(true) },
               { label:"Government ID",   icon:"badge",    status:kycStatus, action:() => setShowKYC(true) },
-              { label:"Portfolio Link",  icon:"link",     status:"none", action:() => {} },
+              { label:"Portfolio Link",  icon:"link",     status:portfolioVerified ? "approved" : "none", subtext:portfolioUrl || null, action:() => setShowPortfolioModal(true) },
             ].map(v => (
               <div key={v.label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"16px 18px", background:"#f9f9fb", borderRadius:12, border:"1px solid #e9e7eb", marginBottom:10 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:12 }}>
@@ -511,12 +517,36 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
                   </div>
                   <div>
                     <span style={{ fontWeight:600, fontSize:14, color:"#001637" }}>{v.label}</span>
+                    {v.subtext && (
+                      <div style={{ marginTop: 2 }}>
+                        <a 
+                          href={v.subtext.startsWith("http") ? v.subtext : `https://${v.subtext}`} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          style={{ fontSize: 12, color: "#2563eb", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 3 }}
+                        >
+                          {v.subtext.replace(/^https?:\/\//, "")}
+                          <span className="msym" style={{ fontSize: 13 }}>open_in_new</span>
+                        </a>
+                      </div>
+                    )}
                     {v.status === "pending" && <div style={{ fontSize:11.5, color:"#d97706" }}>Submitted — awaiting admin review</div>}
                     {v.status === "rejected" && <div style={{ fontSize:11.5, color:"#dc2626" }}>Verification rejected — please try again</div>}
                   </div>
                 </div>
                 {v.status === "approved" ? (
-                  <span style={{ fontSize:11.5, fontWeight:700, color:"#006c47", background:"#f0fdf4", padding:"3px 10px", borderRadius:20 }}>✓ Verified</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize:11.5, fontWeight:700, color:"#006c47", background:"#f0fdf4", padding:"3px 10px", borderRadius:20 }}>✓ Verified</span>
+                    {v.action && (
+                      <button 
+                        onClick={v.action} 
+                        style={{ background: "none", border: "none", color: "#75777f", fontSize: 12, cursor: "pointer", textDecoration: "underline", padding: "2px 4px" }}
+                        title="Update link"
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </div>
                 ) : v.status === "pending" ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontSize:11.5, fontWeight:700, color:"#d97706", background:"#fffbe6", border:"1px solid #fef08a", padding:"3px 10px", borderRadius:20 }}>⏳ Pending</span>
@@ -557,6 +587,20 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
             setShowPhoneVerify(false);
             const { data } = await users.getProfile();
             if (data && onUserUpdate) onUserUpdate(data);
+          }}
+        />
+      )}
+      {showPortfolioModal && (
+        <PortfolioModal
+          currentUrl={portfolioUrl}
+          onClose={() => setShowPortfolioModal(false)}
+          onVerified={(newUrl) => {
+            setShowPortfolioModal(false);
+            setPortfolioVerified(true);
+            setPortfolioUrl(newUrl);
+            if (onUserUpdate) {
+              onUserUpdate({ ...user, portfolio_verified: 1, portfolio_url: newUrl });
+            }
           }}
         />
       )}
