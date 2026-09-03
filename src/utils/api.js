@@ -356,7 +356,11 @@ export const users = {
 
   verifyPhoneOTP: (phone, code) => post("/users/phone/verify", { phone, code }),
 
-  verifyPortfolio: (url) => post("/users/portfolio/verify", { url }),
+  verifyPortfolio: (url) => post("/users/portfolio/submit", { url }),
+  submitPortfolio: (url) => post("/users/portfolio/submit", { url }),
+  getPortfolioQueue: () => get("/users/portfolio/queue"),
+  approvePortfolio: (userId) => patch(`/users/portfolio/approve/${userId}`),
+  rejectPortfolio: (userId, reason) => patch(`/users/portfolio/reject/${userId}`, { reason }),
 
   send2FAOTP: () => post("/users/2fa/send-otp"),
 

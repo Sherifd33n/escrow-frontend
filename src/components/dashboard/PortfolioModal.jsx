@@ -32,7 +32,7 @@ export default function PortfolioModal({ onClose, onVerified, currentUrl = "" })
     setTimeout(() => {
       onVerified?.(data?.portfolio_url || clean);
       onClose();
-    }, 1200);
+    }, 1500);
   };
 
   return (
@@ -85,7 +85,7 @@ export default function PortfolioModal({ onClose, onVerified, currentUrl = "" })
             <span className="msym" style={{ fontSize: 20, color: "#93c5fd" }}>
               link
             </span>
-            Verify Portfolio Link
+            Submit Portfolio for Review
           </div>
           <button
             onClick={onClose}
@@ -128,7 +128,7 @@ export default function PortfolioModal({ onClose, onVerified, currentUrl = "" })
                   className="msym"
                   style={{ fontSize: 30, color: "#16a34a" }}
                 >
-                  check_circle
+                  mark_email_read
                 </span>
               </div>
               <h3
@@ -139,7 +139,7 @@ export default function PortfolioModal({ onClose, onVerified, currentUrl = "" })
                   color: "#001637",
                 }}
               >
-                Portfolio Verified!
+                Submitted for Review!
               </h3>
               <p
                 style={{
@@ -149,7 +149,7 @@ export default function PortfolioModal({ onClose, onVerified, currentUrl = "" })
                   lineHeight: 1.5,
                 }}
               >
-                Your portfolio link was reached successfully and marked verified on your profile.
+                Your portfolio link was submitted to our verification team. Once an officer verifies your work samples, your badge will turn verified!
               </p>
             </div>
           ) : (
@@ -174,7 +174,7 @@ export default function PortfolioModal({ onClose, onVerified, currentUrl = "" })
                     lineHeight: 1.45,
                   }}
                 >
-                  Enter your live website, GitHub, Behance, or Dribbble profile. Our system will test that the link is public and online.
+                  Enter your GitHub, Behance, Dribbble, or live website. Our review team will check your identity and work samples.
                 </p>
                 <div style={{ position: "relative" }}>
                   <input
@@ -252,14 +252,14 @@ export default function PortfolioModal({ onClose, onVerified, currentUrl = "" })
                   {ld ? (
                     <>
                       <Spin size={16} color="#fff" />
-                      <span>Verifying...</span>
+                      <span>Submitting...</span>
                     </>
                   ) : (
                     <>
                       <span className="msym" style={{ fontSize: 18 }}>
-                        verified
+                        send
                       </span>
-                      <span>Verify Link</span>
+                      <span>Submit for Review</span>
                     </>
                   )}
                 </Btn>

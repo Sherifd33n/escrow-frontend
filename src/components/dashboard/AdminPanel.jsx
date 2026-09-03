@@ -16,6 +16,9 @@ const AdminPanel = ({ onBack, onLogout }) => {
   const [kycQueue, setKycQueue] = useState([]);
   const [kycLoading, setKycLoading] = useState(false);
 
+  const [portfolioQueue, setPortfolioQueue] = useState([]);
+  const [portfolioLoading, setPortfolioLoading] = useState(false);
+
   const [disputesList, setDisputesList] = useState([]);
   const [disputesLoading, setDisputesLoading] = useState(false);
 
@@ -50,6 +53,40 @@ const AdminPanel = ({ onBack, onLogout }) => {
       setKycLoading(false);
       if (!error) {
         setKycQueue(data || []);
+      }
+    });
+  };
+
+  const loadPortfolioQueue = () => {
+    setPortfolioLoading(true);
+    users.getPortfolioQueue().then(({ data, error }) => {
+      setPortfolioLoading(false);
+      if (!error && data) {
+        setPortfolioQueue(data || []);
+      }
+    });
+  };
+
+  const handleApprovePortfolio = (userId) => {
+    users.approvePortfolio(userId).then(({ error }) => {
+      if (error) {
+        alert(error);
+      } else {
+        alert("Portfolio approved successfully!");
+        loadPortfolioQueue();
+      }
+    });
+  };
+
+  const handleRejectPortfolio = (userId) => {
+    const reason = prompt("Enter rejection reason for this portfolio link:");
+    if (reason === null) return;
+    users.rejectPortfolio(userId, reason.trim()).then(({ error }) => {
+      if (error) {
+        alert(error);
+      } else {
+        alert("Portfolio rejected.");
+        loadPortfolioQueue();
       }
     });
   };
@@ -140,11 +177,14 @@ const AdminPanel = ({ onBack, onLogout }) => {
     loadKYCQueue();
     loadUsers();
     loadAdminReviews();
+    loadPortfolioQueue();
   }, []);
 
   useEffect(() => {
     if (tab === "kyc") {
       loadKYCQueue();
+    } else if (tab === "portfolios") {
+      loadPortfolioQueue();
     } else if (tab === "disputes") {
       loadDisputes();
     } else if (tab === "overview") {
@@ -934,7 +974,8 @@ const AdminPanel = ({ onBack, onLogout }) => {
               ["transactions", "All Transactions"],
               ["disputes", "Disputes"],
               ["users", "Users"],
-              ["kyc", "KYC Queue"],
+              ["kyc", `KYC Queue (${kycQueue.length})`],
+              ["portfolios", `Portfolios (${portfolioQueue.length})`],
               ["reviews", "Reviews"],
             ].map(([k, l]) => (
               <button
@@ -1689,6 +1730,172 @@ const AdminPanel = ({ onBack, onLogout }) => {
                       onClick={() => handleReject(u.id)}
                     >
                       Reject
+                    </Btn>
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
+
+        {tab === "portfolios" && (
+          <div
+            style={{
+              background: T.white,
+              border: `1px solid ${T.gray100}`,
+              borderRadius: 16,
+              padding: "26px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 20,
+              }}
+            >
+              <div>
+                <h2
+                  style={{
+                    fontFamily: "'Inter',sans-serif",
+                    fontSize: 20,
+                    color: T.primary,
+                    margin: "0 0 4px",
+                  }}
+                >
+                  Portfolio Reviews Queue ({portfolioQueue.length})
+                </h2>
+                <p style={{ margin: 0, fontSize: 13, color: T.gray500 }}>
+                  Review vendor portfolio websites, GitHub links, and work samples before verifying ownership.
+                </p>
+              </div>
+              <Btn
+                variant="outline"
+                style={{ fontSize: 12 }}
+                onClick={loadPortfolioQueue}
+              >
+                Refresh Queue
+              </Btn>
+            </div>
+
+            {portfolioLoading && (
+              <p style={{ color: T.gray400, fontSize: 13 }}>
+                Loading pending portfolio submissions...
+              </p>
+            )}
+
+            {!portfolioLoading && portfolioQueue.length === 0 && (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "40px 20px",
+                  background: "#f9f9fb",
+                  borderRadius: 12,
+                  border: `1px solid ${T.gray100}`,
+                }}
+              >
+                <span
+                  className="msym"
+                  style={{ fontSize: 36, color: "#16a34a", display: "block", marginBottom: 8 }}
+                >
+                  check_circle
+                </span>
+                <p style={{ margin: 0, fontWeight: 600, fontSize: 14, color: T.primary }}>
+                  All portfolio reviews are complete!
+                </p>
+                <p style={{ margin: "4px 0 0", fontSize: 12.5, color: T.gray500 }}>
+                  There are no pending vendor portfolio submissions awaiting review.
+                </p>
+              </div>
+            )}
+
+            {!portfolioLoading &&
+              portfolioQueue.map((u) => (
+                <div
+                  key={u.id}
+                  style={{
+                    border: `1px solid ${T.gray100}`,
+                    borderRadius: 10,
+                    padding: "16px 20px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 12,
+                    flexWrap: "wrap",
+                    gap: 12,
+                    background: "#fbfcfe",
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 14.5,
+                        color: T.primary,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      {u.name}
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 500,
+                          color: T.gray500,
+                          background: "#f1f5f9",
+                          padding: "2px 8px",
+                          borderRadius: 12,
+                        }}
+                      >
+                        {u.role || "Vendor"}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12.5, color: T.gray500, marginTop: 3 }}>
+                      {u.email} {u.phone ? `· Phone: ${u.phone}` : ""}
+                      {u.submitted_at && ` · Submitted ${new Date(u.submitted_at).toLocaleString()}`}
+                    </div>
+                    <div style={{ marginTop: 8 }}>
+                      <a
+                        href={u.portfolio_url?.startsWith("http") ? u.portfolio_url : `https://${u.portfolio_url}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: "#2563eb",
+                          textDecoration: "underline",
+                          background: "#eff6ff",
+                          padding: "4px 10px",
+                          borderRadius: 6,
+                          border: "1px solid #dbeafe",
+                        }}
+                      >
+                        <span className="msym" style={{ fontSize: 15 }}>
+                          open_in_new
+                        </span>
+                        {u.portfolio_url}
+                      </a>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <Btn
+                      variant="green"
+                      style={{ fontSize: 12, padding: "8px 16px" }}
+                      onClick={() => handleApprovePortfolio(u.id)}
+                    >
+                      ✓ Approve Portfolio
+                    </Btn>
+                    <Btn
+                      variant="red"
+                      style={{ fontSize: 12, padding: "8px 16px" }}
+                      onClick={() => handleRejectPortfolio(u.id)}
+                    >
+                      ✕ Reject
                     </Btn>
                   </div>
                 </div>

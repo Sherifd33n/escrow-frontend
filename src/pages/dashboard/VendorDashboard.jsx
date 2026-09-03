@@ -38,6 +38,7 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
   const [showPortfolioModal, setShowPortfolioModal] = useState(false);
   const [portfolioVerified, setPortfolioVerified] = useState(!!user?.portfolio_verified);
   const [portfolioUrl, setPortfolioUrl] = useState(user?.portfolio_url || "");
+  const [portfolioStatus, setPortfolioStatus] = useState(user?.portfolio_status || (user?.portfolio_verified ? "approved" : "none"));
   const [walletBalance, setWalletBalance] = useState(0);
   const [showReview, setShowReview] = useState(null);
   const [showSubmitModal, setShowSubmitModal] = useState(null);
@@ -105,6 +106,7 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
     if (user) {
       setPortfolioVerified(!!user?.portfolio_verified);
       setPortfolioUrl(user?.portfolio_url || "");
+      setPortfolioStatus(user?.portfolio_status || (user?.portfolio_verified ? "approved" : "none"));
       const loadKyc = async () => {
         await checkKYC();
       };
@@ -508,7 +510,7 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
               { label:"Phone Number",    icon:"phone",    status:phoneDone ? "approved" : "none", action:() => setShowPhoneVerify(true) },
               { label:"Business Profile",icon:"business", status:Math.max(kycTier, user?.kyc_tier || 1) >= 3 ? "approved" : kycStatus === "pending" ? "pending" : kycStatus === "rejected" ? "rejected" : "none", action:() => setShowKYC(true) },
               { label:"Government ID",   icon:"badge",    status:kycStatus, action:() => setShowKYC(true) },
-              { label:"Portfolio Link",  icon:"link",     status:portfolioVerified ? "approved" : "none", subtext:portfolioUrl || null, action:() => setShowPortfolioModal(true) },
+              { label:"Portfolio Link",  icon:"link",     status:(portfolioStatus === "approved" || portfolioVerified) ? "approved" : portfolioStatus === "pending" ? "pending" : portfolioStatus === "rejected" ? "rejected" : "none", subtext:portfolioUrl || null, action:() => setShowPortfolioModal(true) },
             ].map(v => (
               <div key={v.label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"16px 18px", background:"#f9f9fb", borderRadius:12, border:"1px solid #e9e7eb", marginBottom:10 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:12 }}>
@@ -596,10 +598,10 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
           onClose={() => setShowPortfolioModal(false)}
           onVerified={(newUrl) => {
             setShowPortfolioModal(false);
-            setPortfolioVerified(true);
+            setPortfolioStatus("pending");
             setPortfolioUrl(newUrl);
             if (onUserUpdate) {
-              onUserUpdate({ ...user, portfolio_verified: 1, portfolio_url: newUrl });
+              onUserUpdate({ ...user, portfolio_status: "pending", portfolio_url: newUrl });
             }
           }}
         />
