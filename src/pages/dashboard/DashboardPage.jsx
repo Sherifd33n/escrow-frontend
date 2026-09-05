@@ -487,8 +487,8 @@ const Dashboard=({user,onLogout})=>{
 
       {/* NEW TRANSACTION MODAL */}
       {showNew&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:500,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&setShowNew(false)}>
-          <div style={{background:T.white,borderRadius:"20px 20px 0 0",width:"100%",maxWidth:560,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 -8px 40px rgba(0,0,0,.18)",animation:"fadeUp .25s ease"}}>
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(4px)"}} onClick={e=>e.target===e.currentTarget&&setShowNew(false)}>
+          <div style={{background:T.white,borderRadius:20,width:"100%",maxWidth:560,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 60px rgba(0,0,0,.25)",animation:"fadeUp .25s ease"}}>
             <div style={{background:"linear-gradient(135deg,"+T.primary+","+T.primaryDk+")",padding:"18px 20px",color:T.white,position:"sticky",top:0,zIndex:1,borderRadius:"20px 20px 0 0"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div>

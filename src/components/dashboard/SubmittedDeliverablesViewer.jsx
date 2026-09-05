@@ -19,10 +19,16 @@ export function downloadTextFile(filename, textContent) {
 }
 
 /**
- * Initiates browser download for a deliverable file or URL.
+ * Initiates browser download for a deliverable file or URL using authentication.
  */
-export function downloadDeliverableFile(fileUrl, fileName = "deliverable.zip") {
+export async function downloadDeliverableFile(fileUrl, fileName = "deliverable.zip") {
   if (!fileUrl) return;
+  const token =
+    sessionStorage.getItem("vp_token") ||
+    localStorage.getItem("vp_token") ||
+    sessionStorage.getItem("token") ||
+    localStorage.getItem("token") ||
+    "";
   const backendBase = import.meta.env.VITE_API_URL
     ? import.meta.env.VITE_API_URL.replace("/api", "")
     : "http://localhost:4000";
@@ -31,6 +37,38 @@ export function downloadDeliverableFile(fileUrl, fileName = "deliverable.zip") {
     ? fileUrl
     : `${backendBase}${fileUrl.startsWith("/") ? "" : "/"}${fileUrl}`;
 
+  // If local /uploads/ URL, perform authenticated fetch to get blob and trigger download
+  if (fullUrl.includes("/uploads/")) {
+    try {
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const response = await fetch(fullUrl, { headers });
+
+      if (!response.ok) {
+        // Fallback: Try with query parameter token
+        const urlWithToken = `${fullUrl}${fullUrl.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
+        window.open(urlWithToken, "_blank");
+        return;
+      }
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = fileName || "deliverable.zip";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+      return;
+    } catch (err) {
+      console.warn("Direct blob download failed, falling back to window.open with token query:", err);
+      const urlWithToken = `${fullUrl}${fullUrl.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
+      window.open(urlWithToken, "_blank");
+      return;
+    }
+  }
+
+  // External URLs (e.g. GitHub releases, S3 links)
   const link = document.createElement("a");
   link.href = fullUrl;
   link.download = fileName || "deliverable.zip";
@@ -42,6 +80,7 @@ export function downloadDeliverableFile(fileUrl, fileName = "deliverable.zip") {
 }
 
 export default function SubmittedDeliverablesViewer({ tx, activeMilestone, compact = false }) {
+  const [downloadingUrl, setDownloadingUrl] = useState(null);
 
   // Extract all milestones or specified active milestone
   const milestones = tx?.milestones || [];
@@ -259,22 +298,33 @@ export default function SubmittedDeliverablesViewer({ tx, activeMilestone, compa
 
                 <Btn
                   variant="teal"
+                  disabled={downloadingUrl === file.url}
                   style={{
                     fontSize: 12,
                     padding: "6px 14px",
-                    background: "#0284c7",
-                    borderColor: "#0284c7",
+                    background: downloadingUrl === file.url ? "#64748b" : "#0284c7",
+                    borderColor: downloadingUrl === file.url ? "#64748b" : "#0284c7",
                     display: "inline-flex",
                     alignItems: "center",
                     gap: 6,
                     whiteSpace: "nowrap",
+                    cursor: downloadingUrl === file.url ? "wait" : "pointer",
                   }}
-                  onClick={() => downloadDeliverableFile(file.url, file.fileName)}
+                  onClick={async () => {
+                    try {
+                      setDownloadingUrl(file.url);
+                      await downloadDeliverableFile(file.url, file.fileName);
+                    } finally {
+                      setDownloadingUrl(null);
+                    }
+                  }}
                 >
                   <span className="msym" style={{ fontSize: 16 }}>
-                    file_download
+                    {downloadingUrl === file.url ? "hourglass_top" : "file_download"}
                   </span>
-                  Download Deliverable ({file.isZip ? "ZIP" : "File"})
+                  {downloadingUrl === file.url
+                    ? "Downloading..."
+                    : `Download Deliverable (${file.isZip ? "ZIP" : "File"})`}
                 </Btn>
               </div>
             ))}

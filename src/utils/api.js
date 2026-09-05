@@ -289,6 +289,10 @@ export const admin = {
 
   getDispute: (id) => get(`/admin/disputes/${id}`),
 
+  getDisputeAiAnalysis: (id) => get(`/admin/disputes/${id}/ai-analysis`),
+
+  triggerDisputeAiAnalysis: (id) => post(`/admin/disputes/${id}/ai-analysis`, {}),
+
   reviewDispute: (id) => patch(`/admin/disputes/${id}/review`, {}),
 
   resolveDispute: (id, data) => patch(`/admin/disputes/${id}/resolve`, data),

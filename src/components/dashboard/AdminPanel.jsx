@@ -7,8 +7,10 @@ import {
   EvidenceViewer,
 } from "../../components/ui";
 import { CATS } from "../../data/constants";
-import { users, admin, transactions } from "../../utils/api";
+import { users, admin } from "../../utils/api";
 import { sseEmitter } from "../../utils/useSSE";
+import AIDisputeAnalysisCard from "./AIDisputeAnalysisCard";
+import DisputeResolveModal from "./DisputeResolveModal";
 
 const AdminPanel = ({ onBack, onLogout }) => {
   const handleExit = onBack || onLogout;
@@ -23,6 +25,8 @@ const AdminPanel = ({ onBack, onLogout }) => {
   const [disputesLoading, setDisputesLoading] = useState(false);
 
   const [selectedDispute, setSelectedDispute] = useState(null);
+  const [aiAnalysisLoading, setAiAnalysisLoading] = useState(false);
+  const [resolveModalData, setResolveModalData] = useState(null);
 
   const [platformTxs, setPlatformTxs] = useState([]);
   const [txsLoading, setTxsLoading] = useState(false);
@@ -298,37 +302,38 @@ const AdminPanel = ({ onBack, onLogout }) => {
     });
   };
 
-  const handleResolveDispute = (transactionId) => {
-    const winnerInput = window.prompt(
-      "Who is the winner? Enter 'buyer' or 'seller':",
-    );
-    if (!winnerInput) return;
-    const winner = winnerInput.trim().toLowerCase();
-    if (winner !== "buyer" && winner !== "seller") {
-      alert("Invalid winner. Must be 'buyer' or 'seller'.");
-      return;
-    }
-    const resolution = window.prompt("Enter dispute resolution text:");
-    if (!resolution || !resolution.trim()) {
-      alert("Resolution text is required.");
-      return;
-    }
+  const handleRunAiAnalysis = (disputeId) => {
+    setAiAnalysisLoading(true);
+    admin.triggerDisputeAiAnalysis(disputeId).then(({ error }) => {
+      setAiAnalysisLoading(false);
+      if (error) {
+        alert(error);
+      } else {
+        loadSingleDispute(disputeId);
+      }
+    });
+  };
 
-    transactions
-      .resolveDispute(transactionId, {
-        winner,
-        resolution: resolution.trim(),
-      })
-      .then(({ error }) => {
-        if (error) {
-          alert(error);
-        } else {
-          alert("Dispute resolved successfully!");
-          setSelectedDispute(null);
-          loadDisputes();
-          loadPlatformTransactions();
-        }
-      });
+  const handleExecuteResolve = async (params) => {
+    if (!selectedDispute) return;
+    const { error } = await admin.resolveDispute(selectedDispute.dispute.id, params);
+    if (error) {
+      throw new Error(error);
+    } else {
+      alert("Dispute resolved successfully!");
+      setResolveModalData(null);
+      setSelectedDispute(null);
+      loadDisputes();
+      loadPlatformTransactions();
+      loadDashboard();
+    }
+  };
+
+  const handleResolveDispute = () => {
+    setResolveModalData({
+      winner: "buyer",
+      reasoning: "",
+    });
   };
 
   // ─── STATS CALCULATIONS ──────────────────────────────────────────────────
@@ -567,6 +572,24 @@ const AdminPanel = ({ onBack, onLogout }) => {
                   )}
                 </div>
               </div>
+
+              {/* AI Dispute Resolution Arbitrator Card */}
+              <AIDisputeAnalysisCard
+                analysis={selectedDispute.ai_analysis}
+                history={selectedDispute.ai_history || []}
+                loading={aiAnalysisLoading}
+                isResolved={d.status === "resolved"}
+                onReanalyze={() => handleRunAiAnalysis(d.id)}
+                onAdoptRecommendation={(recData) => {
+                  setResolveModalData({
+                    winner: recData.winner,
+                    buyerPercentage: recData.buyerPercentage,
+                    sellerPercentage: recData.sellerPercentage,
+                    reasoning: recData.reasoning,
+                    analysisId: recData.analysisId,
+                  });
+                }}
+              />
 
               {/* Milestones Card */}
               <div
@@ -949,7 +972,7 @@ const AdminPanel = ({ onBack, onLogout }) => {
                     <Btn
                       variant="green"
                       style={{ width: "100%", fontSize: 13 }}
-                      onClick={() => handleResolveDispute(t.id, d.id)}
+                      onClick={handleResolveDispute}
                     >
                       Resolve Dispute →
                     </Btn>
@@ -959,6 +982,17 @@ const AdminPanel = ({ onBack, onLogout }) => {
             </div>
           </div>
         </div>
+
+        {/* Final Dispute Resolution Settlement Modal */}
+        <DisputeResolveModal
+          dispute={d}
+          transaction={t}
+          aiAnalysis={selectedDispute.ai_analysis}
+          initialData={resolveModalData}
+          isOpen={!!resolveModalData}
+          onClose={() => setResolveModalData(null)}
+          onConfirm={handleExecuteResolve}
+        />
       </div>
     );
   }
