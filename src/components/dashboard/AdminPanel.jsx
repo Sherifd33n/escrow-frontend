@@ -49,6 +49,26 @@ const AdminPanel = ({ onBack, onLogout }) => {
 
   // ─── DATA LOADING ──────────────────────────────────────────────────────────
 
+  const getSecureFileUrl = (filePath) => {
+    if (!filePath) return "#";
+    const token =
+      sessionStorage.getItem("vp_token") ||
+      localStorage.getItem("vp_token") ||
+      sessionStorage.getItem("token") ||
+      localStorage.getItem("token") ||
+      "";
+    const backendBase = import.meta.env.VITE_API_URL
+      ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, "")
+      : "http://localhost:4000";
+
+    const cleanPath = filePath.startsWith("http")
+      ? filePath
+      : `${backendBase}${filePath.startsWith("/") ? "" : "/"}${filePath}`;
+
+    const separator = cleanPath.includes("?") ? "&" : "?";
+    return token ? `${cleanPath}${separator}token=${encodeURIComponent(token)}` : cleanPath;
+  };
+
   const loadKYCQueue = useCallback(() => {
     users.getKYCQueue().then(({ data, error }) => {
       setKycLoading(false);
@@ -387,11 +407,21 @@ const AdminPanel = ({ onBack, onLogout }) => {
             }}
           >
             <div
-              style={{ fontWeight: 800, fontSize: 18, cursor: "pointer" }}
+              style={{ fontWeight: 800, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
               onClick={() => setSelectedDispute(null)}
             >
-              <span style={{ color: T.green }}>Escrow</span>{" "}
-              <span style={{ fontSize: 12, opacity: 0.6, fontWeight: 400 }}>
+              <img
+                src="/logo.jpeg"
+                alt="Lumbrr"
+                style={{
+                  height: 34,
+                  width: "auto",
+                  objectFit: "contain",
+                  mixBlendMode: "screen",
+                  display: "block",
+                }}
+              />
+              <span style={{ fontSize: 12, opacity: 0.7, fontWeight: 500, background: "rgba(255,255,255,0.12)", padding: "2px 8px", borderRadius: 4 }}>
                 Admin / Dispute #{d.id}
               </span>
             </div>
@@ -1019,11 +1049,21 @@ const AdminPanel = ({ onBack, onLogout }) => {
           }}
         >
           <div
-            style={{ fontWeight: 800, fontSize: 18, cursor: "pointer" }}
+            style={{ fontWeight: 800, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
             onClick={handleExit}
           >
-            <span style={{ color: T.green }}>Escrow</span>{" "}
-            <span style={{ fontSize: 12, opacity: 0.6, fontWeight: 400 }}>
+            <img
+              src="/logo.jpeg"
+              alt="Lumbrr"
+              style={{
+                height: 36,
+                width: "auto",
+                objectFit: "contain",
+                mixBlendMode: "screen",
+                display: "block",
+              }}
+            />
+            <span style={{ fontSize: 11, background: "rgba(255,255,255,0.15)", color: "#fff", borderRadius: 6, padding: "3px 8px", fontWeight: 700 }}>
               Admin
             </span>
           </div>
@@ -1752,17 +1792,19 @@ const AdminPanel = ({ onBack, onLogout }) => {
                         gap: 10,
                       }}
                     >
-                      <a
-                        href={`http://localhost:4000${u.id_file}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ color: T.accent, textDecoration: "underline" }}
-                      >
-                        View ID
-                      </a>
+                      {u.id_file && (
+                        <a
+                          href={getSecureFileUrl(u.id_file)}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ color: T.accent, textDecoration: "underline" }}
+                        >
+                          View ID
+                        </a>
+                      )}
                       {u.selfie_file && (
                         <a
-                          href={`http://localhost:4000${u.selfie_file}`}
+                          href={getSecureFileUrl(u.selfie_file)}
                           target="_blank"
                           rel="noreferrer"
                           style={{
@@ -1775,7 +1817,7 @@ const AdminPanel = ({ onBack, onLogout }) => {
                       )}
                       {u.biz_file && (
                         <a
-                          href={`http://localhost:4000${u.biz_file}`}
+                          href={getSecureFileUrl(u.biz_file)}
                           target="_blank"
                           rel="noreferrer"
                           style={{
@@ -1788,7 +1830,7 @@ const AdminPanel = ({ onBack, onLogout }) => {
                       )}
                       {u.incorp_file && (
                         <a
-                          href={`http://localhost:4000${u.incorp_file}`}
+                          href={getSecureFileUrl(u.incorp_file)}
                           target="_blank"
                           rel="noreferrer"
                           style={{

@@ -377,10 +377,10 @@ export default function ServicesPage({ navigate, user }) {
         display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",rowGap:8,
         padding:"10px 20px"}}>
         <div style={{display:"flex",alignItems:"center",gap:16,flexWrap:"wrap",rowGap:8}}>
-          <span style={{fontWeight:800,fontSize:20,color:"#fff",cursor:"pointer",letterSpacing:"-.3px"}}
+          <div style={{cursor:"pointer",display:"flex",alignItems:"center"}}
             onClick={() => navigate(user ? "dashboard" : "home")}>
-            <span style={{color:"#82f9be"}}>Escrow</span>
-          </span>
+            <img src="/logo.jpeg" alt="Lumbrr" style={{ height: 36, width: "auto", objectFit: "contain", mixBlendMode: "screen", display: "block" }} />
+          </div>
           <div style={{display:"flex",gap:2,flexWrap:"wrap"}}>
             {[["plans","Plans & Pricing"],["services","Digital Services"]].map(([k,l]) => (
               <button key={k} onClick={() => setTab(k)}

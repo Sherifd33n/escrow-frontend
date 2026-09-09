@@ -6,10 +6,9 @@ const AuthShell=({children,navigate})=>(
     {/* Header */}
     <header style={{background:"#fff",borderBottom:"1px solid #e4e2e5",height:64,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 1.5rem",position:"sticky",top:0,zIndex:10,boxShadow:"0 1px 0 #e4e2e5"}}>
       <div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>navigate("home")}>
-        <div style={{width:36,height:36,background:"linear-gradient(135deg,#1a56a0,#0f3d7a)",borderRadius:9,display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <span style={{color:"#fff",fontWeight:800,fontSize:17,fontFamily:"'Inter',sans-serif"}}>E</span>
+        <div style={{ background: "#162510", borderRadius: 8, padding: "4px 10px", display: "inline-flex", alignItems: "center" }}>
+          <img src="/logo.jpeg" alt="Lumbrr" style={{ height: 32, width: "auto", objectFit: "contain", mixBlendMode: "screen", display: "block" }} />
         </div>
-        <span style={{fontWeight:800,fontSize:19,color:"#001637",letterSpacing:"-.4px"}}><span style={{color:"#006c47"}}>Escrow</span></span>
       </div>
       <button
         onClick={()=>navigate("home")}

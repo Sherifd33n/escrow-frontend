@@ -116,26 +116,10 @@ export default function PaystackCallback({ navigate }) {
     >
       {/* Brand Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 28 }}>
-        <div
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 10,
-            background: T.primary,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: T.white,
-            fontWeight: 800,
-            fontSize: 18,
-            boxShadow: "0 8px 20px rgba(0,22,55,0.25)",
-          }}
-        >
-          E
+        <div style={{ background: "#162510", borderRadius: 8, padding: "4px 10px", display: "inline-flex", alignItems: "center" }}>
+          <img src="/logo.jpeg" alt="Lumbrr" style={{ height: 32, width: "auto", objectFit: "contain", mixBlendMode: "screen", display: "block" }} />
         </div>
-        <span style={{ fontSize: 20, fontWeight: 800, color: T.white, letterSpacing: "-0.5px" }}>
-          ESCROW <span style={{ fontSize: 11, fontWeight: 700, color: T.green, background: "rgba(16,185,129,0.15)", padding: "3px 8px", borderRadius: 12, marginLeft: 6, verticalAlign: "middle" }}>PAYSTACK SECURE</span>
-        </span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: T.green, background: "rgba(16,185,129,0.15)", padding: "3px 8px", borderRadius: 12 }}>PAYSTACK SECURE</span>
       </div>
 
       <div

@@ -375,7 +375,7 @@ export const users = {
 
   getKYCStatus: () => get("/users/kyc/status"),
 
-  resetKYC: () => post("/users/kyc/reset"),
+  resetKYC: (body) => post("/users/kyc/reset", body || {}),
 
   getKYCQueue: () => get("/users/kyc/queue"),
 

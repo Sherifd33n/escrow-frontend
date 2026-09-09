@@ -175,18 +175,17 @@ const UploadZone = ({
   );
 };
 
-const KYC = ({ user, onClose, onComplete }) => {
+const KYC = ({ user, onClose, initialBiz = false }) => {
   const [step, setStep] = useState(1);
   const [fm, setFm] = useState({
     phone: user?.phone || "",
     idType: "passport",
     idNum: "",
-    biz: false,
     bizName: "",
     bizReg: "",
   });
   const [ld, setLd] = useState(true);
-  const [kycState, setKycState] = useState("form"); // "form" | "review" | "rejected"
+  const [kycState, setKycState] = useState("form"); // "form" | "review" | "rejected" | "approved"
   const [notifyEmail, setNotifyEmail] = useState(false);
 
   // File states — store actual File objects + preview URLs
@@ -200,47 +199,52 @@ const KYC = ({ user, onClose, onComplete }) => {
   const [incorpPreview, setIncorpPreview] = useState(null);
 
   const [err, setErr] = useState("");
+  const [rejectionReason, setRejectionReason] = useState("");
 
   const [prevPhone, setPrevPhone] = useState(user?.phone);
   if (user?.phone !== prevPhone) {
     setPrevPhone(user?.phone);
-    setFm((p) => ({ ...p, phone: user.phone }));
+    setFm((p) => ({ ...p, phone: user?.phone || "" }));
   }
 
   const h = (k) => (e) => setFm((p) => ({ ...p, [k]: e.target.value }));
-  const total = fm.biz ? 3 : 2;
-
-  const [rejectionReason, setRejectionReason] = useState("");
+  const total = 2; // Clean 2 steps for both Government ID and Business Profile
 
   // Load current status on mount
   useEffect(() => {
     users.getKYCStatus().then(({ data, error }) => {
       setLd(false);
       if (!error && data) {
-        if (data.status === "pending") {
+        const targetStatus = initialBiz
+          ? (data.biz_status || "none")
+          : (data.govt_id_status || "none");
+
+        if (targetStatus === "pending") {
           setKycState("review");
-        } else if (data.status === "rejected") {
+        } else if (targetStatus === "rejected") {
           setKycState("rejected");
-          if (data.rejection_reason) setRejectionReason(data.rejection_reason);
-        } else if (data.status === "approved" || data.tier > 1) {
+          const reason = initialBiz
+            ? data.biz_rejection_reason
+            : data.govt_rejection_reason;
+          if (reason) setRejectionReason(reason);
+        } else if (targetStatus === "approved") {
           setKycState("approved");
         } else {
           setKycState("form");
         }
-        if (data.phone) {
-          setFm((p) => ({
-            ...p,
-            phone: data.phone,
-            idType: data.id_type || "passport",
-            idNum: data.id_number || "",
-            biz: !!data.biz_name,
-            bizName: data.biz_name || "",
-            bizReg: data.biz_reg || "",
-          }));
-        }
+
+        setFm((p) => ({
+          ...p,
+          phone: data.phone || user?.phone || "",
+          idType: data.id_type || "passport",
+          idNum: data.id_number || "",
+          bizName: data.biz_name || "",
+          bizReg: data.biz_reg || "",
+        }));
       }
     });
-  }, []);
+  }, [initialBiz, user?.phone]);
+
   // Cleans up object URLs to avoid memory leaks
   const revokeURL = (url) => {
     if (url && url.startsWith("blob:")) URL.revokeObjectURL(url);
@@ -266,35 +270,55 @@ const KYC = ({ user, onClose, onComplete }) => {
   // Validate current step before advancing
   const canAdvance = () => {
     setErr("");
-    if (step === 1) {
-      if (!user?.phone_verified) {
-        return (
-          setErr("Please verify your phone number on the dashboard first."),
-          false
-        );
+    if (!user?.phone_verified) {
+      setErr("Please verify your phone number on the dashboard first.");
+      return false;
+    }
+
+    if (initialBiz) {
+      // Business Profile Verification validation
+      if (step === 1) {
+        if (!fm.bizName.trim()) {
+          setErr("Registered business name is required.");
+          return false;
+        }
+        if (!fm.bizReg.trim()) {
+          setErr("Registration / CAC number is required.");
+          return false;
+        }
+        if (!bizFile) {
+          setErr("Please upload your business document (CAC / TIN / cert).");
+          return false;
+        }
+        return true;
       }
-      if (!fm.idNum.trim()) return (setErr("ID number is required."), false);
-      if (!idFile) return (setErr("Please upload your ID document."), false);
-      return true;
-    }
-    if (step === 2 && !fm.biz) {
-      if (!selfieFile)
-        return (setErr("Please upload a selfie holding your ID."), false);
-      return true;
-    }
-    if (step === 2 && fm.biz) {
-      if (!fm.bizName.trim())
-        return (setErr("Business name is required."), false);
-      if (!fm.bizReg.trim())
-        return (setErr("Registration number is required."), false);
-      if (!bizFile)
-        return (setErr("Please upload your business document."), false);
-      return true;
-    }
-    if (step === 3 && fm.biz) {
-      if (!incorpFile)
-        return (setErr("Please upload your incorporation certificate."), false);
-      return true;
+      if (step === 2) {
+        if (!incorpFile) {
+          setErr("Please upload your certificate of incorporation.");
+          return false;
+        }
+        return true;
+      }
+    } else {
+      // Government ID Verification validation
+      if (step === 1) {
+        if (!fm.idNum.trim()) {
+          setErr("ID number is required.");
+          return false;
+        }
+        if (!idFile) {
+          setErr("Please upload your ID document.");
+          return false;
+        }
+        return true;
+      }
+      if (step === 2) {
+        if (!selfieFile) {
+          setErr("Please upload a selfie holding your ID.");
+          return false;
+        }
+        return true;
+      }
     }
     return true;
   };
@@ -307,17 +331,20 @@ const KYC = ({ user, onClose, onComplete }) => {
       setLd(true);
       const fd = new FormData();
       fd.append("phone", fm.phone);
-      fd.append("idType", fm.idType);
-      fd.append("idNum", fm.idNum);
-      fd.append("biz", fm.biz);
-      if (fm.biz) {
+      fd.append("biz", initialBiz ? "true" : "false");
+
+      if (initialBiz) {
         fd.append("bizName", fm.bizName);
         fd.append("bizReg", fm.bizReg);
+        if (bizFile) fd.append("bizFile", bizFile);
+        if (incorpFile) fd.append("incorpFile", incorpFile);
+        if (selfieFile) fd.append("selfieFile", selfieFile);
+      } else {
+        fd.append("idType", fm.idType);
+        fd.append("idNum", fm.idNum);
+        if (idFile) fd.append("idFile", idFile);
+        if (selfieFile) fd.append("selfieFile", selfieFile);
       }
-      if (idFile) fd.append("idFile", idFile);
-      if (selfieFile) fd.append("selfieFile", selfieFile);
-      if (bizFile) fd.append("bizFile", bizFile);
-      if (incorpFile) fd.append("incorpFile", incorpFile);
 
       users.submitKYC(fd).then(({ error }) => {
         setLd(false);
@@ -339,7 +366,7 @@ const KYC = ({ user, onClose, onComplete }) => {
         zIndex: 500,
         display: "flex",
         alignItems: "center",
-        justifyCenter: "center",
+        justifyContent: "center",
         padding: 16,
         backdropFilter: "blur(4px)",
       }}
@@ -385,7 +412,7 @@ const KYC = ({ user, onClose, onComplete }) => {
                 marginBottom: 6,
               }}
             >
-              Identity Verified
+              {initialBiz ? "Business Profile Verified" : "Identity Verified"}
             </div>
             <p
               style={{
@@ -395,8 +422,9 @@ const KYC = ({ user, onClose, onComplete }) => {
                 marginBottom: 24,
               }}
             >
-              Your government ID and identity details have been approved by the admin.
-              Your account is verified.
+              {initialBiz
+                ? "Your business profile and incorporation documents have been verified and approved."
+                : "Your government ID and identity details have been approved by the admin. Your account is verified."}
             </p>
             <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
               <Btn variant="primary" onClick={onClose}>
@@ -433,7 +461,9 @@ const KYC = ({ user, onClose, onComplete }) => {
                 marginBottom: 6,
               }}
             >
-              Identity Verification Rejected
+              {initialBiz
+                ? "Business Verification Rejected"
+                : "Identity Verification Rejected"}
             </div>
             <p
               style={{
@@ -469,7 +499,9 @@ const KYC = ({ user, onClose, onComplete }) => {
                 variant="primary"
                 onClick={async () => {
                   setLd(true);
-                  await users.resetKYC();
+                  await users.resetKYC({
+                    type: initialBiz ? "business" : "govt_id",
+                  });
                   setLd(false);
                   setKycState("form");
                   setStep(1);
@@ -492,7 +524,7 @@ const KYC = ({ user, onClose, onComplete }) => {
                 borderRadius: "50%",
                 display: "flex",
                 alignItems: "center",
-                justifyCenter: "center",
+                justifyContent: "center",
                 margin: "0 auto 18px",
               }}
             >
@@ -518,14 +550,15 @@ const KYC = ({ user, onClose, onComplete }) => {
                 marginBottom: 20,
               }}
             >
-              Your documents are under review. This usually takes 1–24 hours.
-              We'll notify you once it's complete.
+              Your {initialBiz ? "business documents" : "identity documents"} are
+              under review. This usually takes 1–24 hours. We'll notify you once
+              it's complete.
             </p>
             <label
               style={{
                 display: "flex",
                 alignItems: "center",
-                justifyCenter: "center",
+                justifyContent: "center",
                 gap: 8,
                 marginBottom: 24,
                 cursor: "pointer",
@@ -541,7 +574,7 @@ const KYC = ({ user, onClose, onComplete }) => {
                 Email me when verification completes
               </span>
             </label>
-            <div style={{ display: "flex", gap: 10, justifyCenter: "center" }}>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
               <Btn variant="outline" onClick={onClose}>
                 Close
               </Btn>
@@ -566,7 +599,7 @@ const KYC = ({ user, onClose, onComplete }) => {
               <div
                 style={{
                   display: "flex",
-                  justifyCenter: "space-between",
+                  justifyContent: "space-between",
                   alignItems: "center",
                   marginBottom: 14,
                 }}
@@ -581,9 +614,11 @@ const KYC = ({ user, onClose, onComplete }) => {
                   }}
                 >
                   <span className="msym" style={{ fontSize: 20 }}>
-                    badge
+                    {initialBiz ? "business" : "badge"}
                   </span>
-                  Identity Verification (KYC)
+                  {initialBiz
+                    ? "Business Profile Verification (Tier 3)"
+                    : "Identity Verification (KYC)"}
                 </div>
                 <button
                   onClick={onClose}
@@ -598,7 +633,7 @@ const KYC = ({ user, onClose, onComplete }) => {
                     fontSize: 16,
                     display: "flex",
                     alignItems: "center",
-                    justifyCenter: "center",
+                    justifyContent: "center",
                   }}
                 >
                   ×
@@ -652,287 +687,375 @@ const KYC = ({ user, onClose, onComplete }) => {
                 </div>
               )}
 
-              {/* ── STEP 1: Phone + ID ── */}
-              {step === 1 && (
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 18 }}
-                >
-                  {/* Phone input field (displays the verified number) */}
-                  <div>
-                    <label
+              {/* ────────────────────────────────────────────────────────── */}
+              {/* ── MODE 1: BUSINESS PROFILE VERIFICATION ───────────────── */}
+              {/* ────────────────────────────────────────────────────────── */}
+              {initialBiz && (
+                <>
+                  {/* Step 1: Business Info & Registration Doc */}
+                  {step === 1 && (
+                    <div
                       style={{
-                        display: "block",
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: T.gray700,
-                        marginBottom: 5,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 18,
                       }}
                     >
-                      Phone Number *
-                      {user?.phone_verified ? (
-                        <span
+                      <div>
+                        <label
                           style={{
-                            marginLeft: 8,
-                            fontSize: 11.5,
-                            color: T.green,
-                            fontWeight: 700,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 3,
+                            display: "block",
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: T.gray700,
+                            marginBottom: 5,
                           }}
                         >
-                          <span className="msym" style={{ fontSize: 13 }}>
-                            verified
-                          </span>{" "}
-                          Verified
-                        </span>
-                      ) : (
-                        <span
+                          Contact Phone Number *
+                          {user?.phone_verified ? (
+                            <span
+                              style={{
+                                marginLeft: 8,
+                                fontSize: 11.5,
+                                color: T.green,
+                                fontWeight: 700,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 3,
+                              }}
+                            >
+                              <span className="msym" style={{ fontSize: 13 }}>
+                                verified
+                              </span>{" "}
+                              Verified
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                marginLeft: 8,
+                                fontSize: 11.5,
+                                color: T.red,
+                                fontWeight: 700,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 3,
+                              }}
+                            >
+                              <span className="msym" style={{ fontSize: 13 }}>
+                                error
+                              </span>{" "}
+                              Unverified
+                            </span>
+                          )}
+                        </label>
+                        <input
+                          style={fs}
+                          placeholder="Verify phone number on dashboard first"
+                          value={fm.phone}
+                          disabled={true}
+                        />
+                        {!user?.phone_verified && (
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: T.red,
+                              marginTop: 5,
+                              fontWeight: 500,
+                            }}
+                          >
+                            ⚠️ You must verify your phone number on the dashboard
+                            before continuing.
+                          </div>
+                        )}
+                      </div>
+
+                      <F label="Registered Business Name" req>
+                        <input
+                          style={fs}
+                          placeholder="e.g. Devcraft Solutions Ltd"
+                          value={fm.bizName}
+                          onChange={h("bizName")}
+                          disabled={!user?.phone_verified}
+                        />
+                      </F>
+
+                      <F label="Registration / CAC / Tax Number" req>
+                        <input
+                          style={fs}
+                          placeholder="e.g. RC1234567 or BN987654"
+                          value={fm.bizReg}
+                          onChange={h("bizReg")}
+                          disabled={!user?.phone_verified}
+                        />
+                      </F>
+
+                      <UploadZone
+                        label="Upload Business Registration Document"
+                        hint="CAC certificate, business registration, or tax identification"
+                        icon="business"
+                        file={bizFile}
+                        preview={bizPreview}
+                        onSelect={(f) =>
+                          handleFile(f, setBizFile, setBizPreview, bizPreview)
+                        }
+                        onRemove={() =>
+                          removeFile(setBizFile, setBizPreview, bizPreview)
+                        }
+                      />
+                    </div>
+                  )}
+
+                  {/* Step 2: Incorporation Certificate + Rep Selfie */}
+                  {step === 2 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 18,
+                      }}
+                    >
+                      <UploadZone
+                        label="Certificate of Incorporation / Form CAC 1.1"
+                        hint="Official incorporation document or status report"
+                        icon="article"
+                        file={incorpFile}
+                        preview={incorpPreview}
+                        onSelect={(f) =>
+                          handleFile(
+                            f,
+                            setIncorpFile,
+                            setIncorpPreview,
+                            incorpPreview,
+                          )
+                        }
+                        onRemove={() =>
+                          removeFile(
+                            setIncorpFile,
+                            setIncorpPreview,
+                            incorpPreview,
+                          )
+                        }
+                      />
+                      <UploadZone
+                        label="Director / Representative Selfie with ID (Optional)"
+                        hint="Clear selfie holding director's ID"
+                        icon="photo_camera"
+                        accept="image/jpeg,image/png"
+                        file={selfieFile}
+                        preview={selfiePreview}
+                        onSelect={(f) =>
+                          handleFile(
+                            f,
+                            setSelfieFile,
+                            setSelfiePreview,
+                            selfiePreview,
+                          )
+                        }
+                        onRemove={() =>
+                          removeFile(
+                            setSelfieFile,
+                            setSelfiePreview,
+                            selfiePreview,
+                          )
+                        }
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* ────────────────────────────────────────────────────────── */}
+              {/* ── MODE 2: GOVERNMENT ID VERIFICATION (KYC) ────────────── */}
+              {/* ────────────────────────────────────────────────────────── */}
+              {!initialBiz && (
+                <>
+                  {/* Step 1: Phone + ID Document */}
+                  {step === 1 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 18,
+                      }}
+                    >
+                      <div>
+                        <label
                           style={{
-                            marginLeft: 8,
-                            fontSize: 11.5,
-                            color: T.red,
-                            fontWeight: 700,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 3,
+                            display: "block",
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: T.gray700,
+                            marginBottom: 5,
                           }}
                         >
-                          <span className="msym" style={{ fontSize: 13 }}>
-                            error
-                          </span>{" "}
-                          Unverified
-                        </span>
-                      )}
-                    </label>
-                    <input
-                      style={fs}
-                      placeholder="Verify phone number on dashboard first"
-                      value={fm.phone}
-                      disabled={true}
-                    />
-                    {!user?.phone_verified && (
+                          Phone Number *
+                          {user?.phone_verified ? (
+                            <span
+                              style={{
+                                marginLeft: 8,
+                                fontSize: 11.5,
+                                color: T.green,
+                                fontWeight: 700,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 3,
+                              }}
+                            >
+                              <span className="msym" style={{ fontSize: 13 }}>
+                                verified
+                              </span>{" "}
+                              Verified
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                marginLeft: 8,
+                                fontSize: 11.5,
+                                color: T.red,
+                                fontWeight: 700,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 3,
+                              }}
+                            >
+                              <span className="msym" style={{ fontSize: 13 }}>
+                                error
+                              </span>{" "}
+                              Unverified
+                            </span>
+                          )}
+                        </label>
+                        <input
+                          style={fs}
+                          placeholder="Verify phone number on dashboard first"
+                          value={fm.phone}
+                          disabled={true}
+                        />
+                        {!user?.phone_verified && (
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: T.red,
+                              marginTop: 5,
+                              fontWeight: 500,
+                            }}
+                          >
+                            ⚠️ You must verify your phone number on the dashboard
+                            before continuing.
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <label
+                          style={{
+                            display: "block",
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: T.gray700,
+                            marginBottom: 5,
+                          }}
+                        >
+                          ID Type *
+                        </label>
+                        <select
+                          style={fs}
+                          value={fm.idType}
+                          onChange={h("idType")}
+                          disabled={!user?.phone_verified}
+                        >
+                          <option value="passport">International Passport</option>
+                          <option value="license">Driver's License</option>
+                          <option value="nin">National ID (NIN)</option>
+                          <option value="voters">Voter's Card</option>
+                        </select>
+                      </div>
+
+                      <F label="ID Number" req>
+                        <input
+                          style={fs}
+                          placeholder="Enter document number"
+                          value={fm.idNum}
+                          onChange={h("idNum")}
+                          disabled={!user?.phone_verified}
+                        />
+                      </F>
+
+                      <UploadZone
+                        label="Upload ID Document"
+                        hint="Clear photo or scan of the front of your ID"
+                        icon="badge"
+                        file={idFile}
+                        preview={idPreview}
+                        onSelect={(f) =>
+                          handleFile(f, setIdFile, setIdPreview, idPreview)
+                        }
+                        onRemove={() =>
+                          removeFile(setIdFile, setIdPreview, idPreview)
+                        }
+                      />
+                    </div>
+                  )}
+
+                  {/* Step 2: Selfie Holding ID */}
+                  {step === 2 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 18,
+                      }}
+                    >
                       <div
                         style={{
-                          fontSize: 12,
-                          color: T.red,
-                          marginTop: 5,
-                          fontWeight: 500,
+                          background: "#f0f4ff",
+                          border: "1px solid #c7d7fd",
+                          borderRadius: 10,
+                          padding: "12px 14px",
+                          fontSize: 13,
+                          color: "#1e40af",
+                          display: "flex",
+                          gap: 8,
+                          alignItems: "flex-start",
                         }}
                       >
-                        ⚠️ You must verify your phone number on the dashboard
-                        before continuing.
+                        <span
+                          className="msym"
+                          style={{ fontSize: 18, flexShrink: 0 }}
+                        >
+                          info
+                        </span>
+                        <span>
+                          Take a clear selfie of yourself holding your ID
+                          document next to your face.
+                        </span>
                       </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: T.gray700,
-                        marginBottom: 5,
-                      }}
-                    >
-                      ID Type *
-                    </label>
-                    <select
-                      style={fs}
-                      value={fm.idType}
-                      onChange={h("idType")}
-                      disabled={!user?.phone_verified}
-                    >
-                      <option value="passport">International Passport</option>
-                      <option value="license">Driver's License</option>
-                      <option value="nin">National ID (NIN)</option>
-                      <option value="voters">Voter's Card</option>
-                    </select>
-                  </div>
-
-                  <F label="ID Number" req>
-                    <input
-                      style={fs}
-                      placeholder="Enter document number"
-                      value={fm.idNum}
-                      onChange={h("idNum")}
-                      disabled={!user?.phone_verified}
-                    />
-                  </F>
-
-                  <UploadZone
-                    label="Upload ID Document"
-                    hint="Clear photo or scan of the front of your ID"
-                    icon="badge"
-                    file={idFile}
-                    preview={idPreview}
-                    onSelect={(f) =>
-                      handleFile(f, setIdFile, setIdPreview, idPreview)
-                    }
-                    onRemove={() =>
-                      removeFile(setIdFile, setIdPreview, idPreview)
-                    }
-                  />
-
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 9,
-                      cursor: "pointer",
-                      padding: "12px 14px",
-                      background: T.offWhite,
-                      borderRadius: 10,
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={fm.biz}
-                      onChange={(e) =>
-                        setFm((p) => ({ ...p, biz: e.target.checked }))
-                      }
-                      style={{ width: 16, height: 16, accentColor: T.primary }}
-                      disabled={!user?.phone_verified}
-                    />
-                    <span style={{ fontSize: 13, color: T.gray700 }}>
-                      I'm also verifying a business account
-                    </span>
-                  </label>
-                </div>
-              )}
-
-              {/* ── STEP 2 (personal): Selfie ── */}
-              {step === 2 && !fm.biz && (
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 18 }}
-                >
-                  <div
-                    style={{
-                      background: "#f0f4ff",
-                      border: "1px solid #c7d7fd",
-                      borderRadius: 10,
-                      padding: "12px 14px",
-                      fontSize: 13,
-                      color: "#1e40af",
-                      display: "flex",
-                      gap: 8,
-                      alignItems: "flex-start",
-                    }}
-                  >
-                    <span
-                      className="msym"
-                      style={{ fontSize: 18, flexShrink: 0 }}
-                    >
-                      info
-                    </span>
-                    <span>
-                      Take a clear selfie of yourself holding your ID document
-                      next to your face.
-                    </span>
-                  </div>
-                  <UploadZone
-                    label="Upload Selfie with ID"
-                    hint="Your face and ID must both be clearly visible"
-                    icon="photo_camera"
-                    accept="image/jpeg,image/png"
-                    file={selfieFile}
-                    preview={selfiePreview}
-                    onSelect={(f) =>
-                      handleFile(
-                        f,
-                        setSelfieFile,
-                        setSelfiePreview,
-                        selfiePreview,
-                      )
-                    }
-                    onRemove={() =>
-                      removeFile(setSelfieFile, setSelfiePreview, selfiePreview)
-                    }
-                  />
-                </div>
-              )}
-
-              {/* ── STEP 2 (business): Business details ── */}
-              {step === 2 && fm.biz && (
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 18 }}
-                >
-                  <F label="Registered Business Name" req>
-                    <input
-                      style={fs}
-                      placeholder="e.g. Devcraft Solutions Ltd"
-                      value={fm.bizName}
-                      onChange={h("bizName")}
-                    />
-                  </F>
-                  <F label="Registration / CAC Number" req>
-                    <input
-                      style={fs}
-                      placeholder="RC1234567"
-                      value={fm.bizReg}
-                      onChange={h("bizReg")}
-                    />
-                  </F>
-                  <UploadZone
-                    label="Upload Business Document"
-                    hint="CAC certificate, business registration, or tax ID"
-                    icon="business"
-                    file={bizFile}
-                    preview={bizPreview}
-                    onSelect={(f) =>
-                      handleFile(f, setBizFile, setBizPreview, bizPreview)
-                    }
-                    onRemove={() =>
-                      removeFile(setBizFile, setBizPreview, bizPreview)
-                    }
-                  />
-                </div>
-              )}
-
-              {/* ── STEP 3 (business): Incorporation cert + selfie ── */}
-              {step === 3 && fm.biz && (
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 18 }}
-                >
-                  <UploadZone
-                    label="Upload Certificate of Incorporation"
-                    hint="Official incorporation document"
-                    icon="article"
-                    file={incorpFile}
-                    preview={incorpPreview}
-                    onSelect={(f) =>
-                      handleFile(
-                        f,
-                        setIncorpFile,
-                        setIncorpPreview,
-                        incorpPreview,
-                      )
-                    }
-                    onRemove={() =>
-                      removeFile(setIncorpFile, setIncorpPreview, incorpPreview)
-                    }
-                  />
-                  <UploadZone
-                    label="Upload Selfie with ID"
-                    hint="Your face and ID must both be clearly visible"
-                    icon="photo_camera"
-                    accept="image/jpeg,image/png"
-                    file={selfieFile}
-                    preview={selfiePreview}
-                    onSelect={(f) =>
-                      handleFile(
-                        f,
-                        setSelfieFile,
-                        setSelfiePreview,
-                        selfiePreview,
-                      )
-                    }
-                    onRemove={() =>
-                      removeFile(setSelfieFile, setSelfiePreview, selfiePreview)
-                    }
-                  />
-                </div>
+                      <UploadZone
+                        label="Upload Selfie with ID"
+                        hint="Your face and ID must both be clearly visible"
+                        icon="photo_camera"
+                        accept="image/jpeg,image/png"
+                        file={selfieFile}
+                        preview={selfiePreview}
+                        onSelect={(f) =>
+                          handleFile(
+                            f,
+                            setSelfieFile,
+                            setSelfiePreview,
+                            selfiePreview,
+                          )
+                        }
+                        onRemove={() =>
+                          removeFile(
+                            setSelfieFile,
+                            setSelfiePreview,
+                            selfiePreview,
+                          )
+                        }
+                      />
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Footer buttons */}

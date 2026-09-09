@@ -79,23 +79,17 @@ export default function Navbar({
                 setMob(false);
               }}
             >
-              <span
+              <img
+                src="/logo.jpeg"
+                alt="Lumbrr"
                 style={{
-                  fontWeight: 800,
-                  fontSize: 22,
-                  backgroundImage:
-                    "linear-gradient(90deg, #E0519B 20%, #51B56D 80%)",
-                  backgroundClip: "text",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  color: "transparent",
-                  letterSpacing: "-.4px",
-                  fontFamily: "'Poppins', sans-serif",
-                  display: "inline-block",
+                  height: 53,
+                  width: "auto",
+                  objectFit: "contain",
+                  mixBlendMode: "screen",
+                  display: "block",
                 }}
-              >
-                LUMBRR
-              </span>
+              />
             </div>
           </div>
 

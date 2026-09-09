@@ -22,31 +22,23 @@ export default function Footer() {
           <div>
             <div
               style={{
-                fontWeight: 800,
-                fontSize: 20,
                 marginBottom: 14,
                 display: "flex",
                 alignItems: "center",
-                gap: 10,
+                cursor: "pointer",
               }}
             >
-              <div
+              <img
+                src="/logo.jpeg"
+                alt="Lumbrr"
                 style={{
-                  width: 34,
-                  height: 34,
-                  background: T.primary,
-                  borderRadius: 8,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: T.white,
-                  fontWeight: 800,
-                  fontSize: 16,
+                  height: 36,
+                  width: "auto",
+                  objectFit: "contain",
+                  mixBlendMode: "screen",
+                  display: "block",
                 }}
-              >
-                E
-              </div>
-              <span style={{ color: T.gold }}>Escrow</span>
+              />
             </div>
             <p
               style={{
