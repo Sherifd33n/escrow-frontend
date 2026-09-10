@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { PLANS } from "../data/constants";
 import { subscriptions } from "../utils/api";
 
@@ -157,6 +157,7 @@ export default function SubscriptionPage({ navigate, user }) {
   const [currentPlan, setCurrent] = useState(null);
   const [pendingPlan, setPendingPlan] = useState(null);
   const [loadingPlan, setLoadingPlan] = useState(null);
+  const subscribingRef = useRef(false);
 
   const fetchSubscription = useCallback(() => {
     if (user) {
@@ -182,13 +183,15 @@ export default function SubscriptionPage({ navigate, user }) {
       return;
     }
     if (currentPlan === plan.id && !pendingPlan) return;
-    if (loadingPlan) return;
+    if (loadingPlan || subscribingRef.current) return;
+    subscribingRef.current = true;
 
     // If the user clicks the SCHEDULED (pending downgrade) card, cancel the pending downgrade
     if (pendingPlan === plan.id) {
       setLoadingPlan(plan.id);
       const { data, error } = await subscriptions.cancelPendingDowngrade();
       setLoadingPlan(null);
+      subscribingRef.current = false;
 
       if (error) {
         alert(error);
@@ -201,6 +204,7 @@ export default function SubscriptionPage({ navigate, user }) {
     }
 
     setLoadingPlan(plan.id);
+    try {
     const { data, error } = await subscriptions.initiatePayment(plan.id, billing);
     setLoadingPlan(null);
 
@@ -225,6 +229,9 @@ export default function SubscriptionPage({ navigate, user }) {
       window.location.href = data.authorization_url;
     } else {
       alert("Unable to process subscription request. Please try again.");
+    }
+    } finally {
+      subscribingRef.current = false;
     }
   };
 

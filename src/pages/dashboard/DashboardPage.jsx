@@ -29,6 +29,8 @@ const Dashboard = ({ user, onLogout }) => {
     role: "buyer",
     days: "3",
     milestones: "2",
+    agreed_deadline: "",
+    agreed_duration: "",
   });
   const [scope, setScope] = useState(null);
   const [msg, setMsg] = useState("");
@@ -133,6 +135,8 @@ const Dashboard = ({ user, onLogout }) => {
       review_days: parseInt(nf.days) || 3,
       scope_json: finalScope || null,
       ai_estimated_timeline: finalScope?.timeline || null,
+      agreed_duration: nf.agreed_duration || null,
+      agreed_deadline: nf.agreed_deadline ? new Date(nf.agreed_deadline).toISOString() : null,
       revision_policy: finalScope?.revisions || null,
     });
     setSubmitting(false);
@@ -2333,15 +2337,32 @@ const Dashboard = ({ user, onLogout }) => {
                       onChange={hn("counterparty")}
                     />
                   </F>
-                  <F label="Review Period">
-                    <select style={fs} value={nf.days} onChange={hn("days")}>
-                      {[1, 2, 3, 5, 7, 10, 14].map((d) => (
-                        <option key={d} value={d}>
-                          {d} {d === 1 ? "day" : "days"}
-                        </option>
-                      ))}
-                    </select>
-                  </F>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 10,
+                    }}
+                  >
+                    <F label="Project Deadline" req>
+                      <input
+                        style={fs}
+                        type="date"
+                        min={new Date().toISOString().split("T")[0]}
+                        value={nf.agreed_deadline}
+                        onChange={hn("agreed_deadline")}
+                      />
+                    </F>
+                    <F label="Review Period">
+                      <select style={fs} value={nf.days} onChange={hn("days")}>
+                        {[1, 2, 3, 5, 7, 10, 14].map((d) => (
+                          <option key={d} value={d}>
+                            {d} {d === 1 ? "day" : "days"}
+                          </option>
+                        ))}
+                      </select>
+                    </F>
+                  </div>
                   <div
                     style={{
                       background: T.tealLt,
@@ -2398,6 +2419,19 @@ const Dashboard = ({ user, onLogout }) => {
                       ],
                       ["Role", nf.role],
                       ["Milestones", "" + nf.milestones],
+                      [
+                        "Deadline",
+                        nf.agreed_deadline
+                          ? (() => {
+                              const parts = String(nf.agreed_deadline).split("-").map(Number);
+                              return new Date(parts[0], parts[1] - 1, parts[2]).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              });
+                            })()
+                          : "Flexible / Not set",
+                      ],
                       ["Review", nf.days + " days"],
                       ["Counterparty", nf.counterparty || ""],
                       ["AI Audit", "Included"],

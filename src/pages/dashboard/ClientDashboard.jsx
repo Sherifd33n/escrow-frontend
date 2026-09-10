@@ -48,6 +48,8 @@ export default function ClientDashboard({
     role: "buyer",
     days: "3",
     milestones: "2",
+    agreed_deadline: "",
+    agreed_duration: "",
   });
   const [scope, setScope] = useState(null);
   const [showKYC, setShowKYC] = useState(false);
@@ -200,6 +202,8 @@ export default function ClientDashboard({
       review_days: parseInt(nf.days) || 3,
       scope_json: finalScope || null,
       ai_estimated_timeline: finalScope?.timeline || null,
+      agreed_duration: nf.agreed_duration || null,
+      agreed_deadline: nf.agreed_deadline ? new Date(nf.agreed_deadline).toISOString() : null,
       revision_policy: finalScope?.revisions || null,
     });
     setSubmitting(false);
@@ -220,6 +224,8 @@ export default function ClientDashboard({
       role: "buyer",
       days: "3",
       milestones: "2",
+      agreed_deadline: "",
+      agreed_duration: "",
     });
   };
 
@@ -253,14 +259,32 @@ export default function ClientDashboard({
       totalAmount,
       currency: t.currency || "USD",
       startDate: t.date,
-      dueDate: new Date(
-        new Date(t.created_at).getTime() +
-          (t.review_days || 3) * 24 * 60 * 60 * 1000,
-      ).toLocaleDateString("en", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }),
+      dueDate: (() => {
+        if (t.agreed_deadline) {
+          const parts = String(t.agreed_deadline).split("T")[0].split(" ")[0].split("-");
+          if (parts.length === 3) {
+            const [y, m, d] = parts.map(Number);
+            return new Date(y, m - 1, d).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            });
+          }
+          return new Date(t.agreed_deadline).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
+        }
+        return new Date(
+          new Date(t.created_at).getTime() +
+            (t.review_days || 3) * 24 * 60 * 60 * 1000,
+        ).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+      })(),
       status,
       paid,
       remaining,
@@ -1905,15 +1929,32 @@ export default function ClientDashboard({
                       onChange={hn("counterparty")}
                     />
                   </F>
-                  <F label="Review Period">
-                    <select style={fs} value={nf.days} onChange={hn("days")}>
-                      {[1, 2, 3, 5, 7, 10, 14].map((d) => (
-                        <option key={d} value={d}>
-                          {d} {d === 1 ? "day" : "days"}
-                        </option>
-                      ))}
-                    </select>
-                  </F>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 10,
+                    }}
+                  >
+                    <F label="Project Deadline" req>
+                      <input
+                        style={fs}
+                        type="date"
+                        min={new Date().toISOString().split("T")[0]}
+                        value={nf.agreed_deadline}
+                        onChange={hn("agreed_deadline")}
+                      />
+                    </F>
+                    <F label="Review Period">
+                      <select style={fs} value={nf.days} onChange={hn("days")}>
+                        {[1, 2, 3, 5, 7, 10, 14].map((d) => (
+                          <option key={d} value={d}>
+                            {d} {d === 1 ? "day" : "days"}
+                          </option>
+                        ))}
+                      </select>
+                    </F>
+                  </div>
                   <div
                     style={{
                       background: "#f0fdf4",
@@ -1962,6 +2003,19 @@ export default function ClientDashboard({
                           parseFloat(nf.amount || 0).toLocaleString(),
                       ],
                       ["Milestones", "" + nf.milestones],
+                      [
+                        "Deadline",
+                        nf.agreed_deadline
+                          ? (() => {
+                              const parts = String(nf.agreed_deadline).split("-").map(Number);
+                              return new Date(parts[0], parts[1] - 1, parts[2]).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              });
+                            })()
+                          : "Flexible / Not set",
+                      ],
                       ["Review", nf.days + " days"],
                       ["Vendor", nf.counterparty || ""],
                     ].map(([k, v]) => (

@@ -66,7 +66,7 @@ const MilestoneCard = ({ m, i }) => {
 
 // ────────────────────────────────────────────────────────────────────
 const ContractModal = ({ tx, scope, user, onClose, onScopeUpdated }) => {
-  const [confirmedScope, setConfirmedScope] = useState(null);
+  const [scopeOverride, setScopeOverride] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [showScopeModal, setShowScopeModal] = useState(false);
   const [requestMsg, setRequestMsg] = useState("");
@@ -74,14 +74,14 @@ const ContractModal = ({ tx, scope, user, onClose, onScopeUpdated }) => {
   const [feedback, setFeedback] = useState(null); // { type: 'success'|'error', text: '' }
   const [providerRequests, setProviderRequests] = useState([]);
 
-  useEffect(() => {
-    // Priority: tx.scope_json (DB) > tx.scope > scope prop
-    const parsed =
-      parseScopeField(tx?.scope_json) ||
-      parseScopeField(tx?.scope) ||
-      parseScopeField(scope);
-    setConfirmedScope(parsed);
+  // Derive scope: manual override > tx.scope_json (DB) > tx.scope > scope prop
+  const confirmedScope =
+    scopeOverride ||
+    parseScopeField(tx?.scope_json) ||
+    parseScopeField(tx?.scope) ||
+    parseScopeField(scope);
 
+  useEffect(() => {
     // Fetch transaction history to check for provider contract change requests
     const txId = tx?.realId || tx?.id;
     if (txId) {
@@ -92,7 +92,7 @@ const ContractModal = ({ tx, scope, user, onClose, onScopeUpdated }) => {
         }
       }).catch(err => console.error("Failed to load tx history:", err));
     }
-  }, [tx, scope]);
+  }, [tx]);
 
   // Role Detection: Determine if current viewer is Client (Buyer) vs Provider (Seller)
   const isClient = Boolean(
@@ -135,7 +135,7 @@ const ContractModal = ({ tx, scope, user, onClose, onScopeUpdated }) => {
       } else {
         const updatedTx = res.data?.transaction;
         const newConfirmed = parseScopeField(updatedTx?.scope_json) || newScope;
-        setConfirmedScope(newConfirmed);
+        setScopeOverride(newConfirmed);
         setFeedback({ type: "success", text: "Contract scope successfully updated!" });
         setShowScopeModal(false);
         if (onScopeUpdated) {
@@ -180,7 +180,23 @@ const ContractModal = ({ tx, scope, user, onClose, onScopeUpdated }) => {
 
   const aiTimeline     = confirmedScope?.timeline || tx?.ai_estimated_timeline || null;
   const agreedDuration = tx?.agreed_duration || null;
-  const agreedDeadline = tx?.agreed_deadline ? new Date(tx.agreed_deadline).toLocaleDateString() : null;
+  const agreedDeadline = tx?.agreed_deadline
+    ? (() => {
+        const parts = String(tx.agreed_deadline).split("T")[0].split(" ")[0].split("-").map(Number);
+        if (parts.length === 3 && !parts.some(isNaN)) {
+          return new Date(parts[0], parts[1] - 1, parts[2]).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
+        }
+        return new Date(tx.agreed_deadline).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+      })()
+    : null;
   const reviewDays     = tx?.review_days || 3;
   const revisionTerms  = tx?.revision_policy || confirmedScope?.revisions || "2 revisions included per milestone";
 
