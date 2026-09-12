@@ -105,51 +105,52 @@ const AuditModal = ({ tx, onClose, onApprove, onRevision }) => {
       style={{
         position: "fixed", inset: 0, background: "rgba(0,0,0,.65)", zIndex: 600,
         display: "flex", alignItems: "center", justifyContent: "center",
-        padding: 16, backdropFilter: "blur(6px)",
+        padding: "16px 12px", backdropFilter: "blur(6px)", boxSizing: "border-box",
       }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
       <div style={{
-        background: T.white, borderRadius: 20, width: "100%", maxWidth: 600,
-        maxHeight: "90vh", overflowY: "auto",
+        background: T.white, borderRadius: 18, width: "100%", maxWidth: 600,
+        maxHeight: "90vh", overflowY: "auto", boxSizing: "border-box",
         boxShadow: "0 32px 80px rgba(0,0,0,.30)", animation: "fadeUp .3s ease",
       }}>
         {/* Header */}
         <div style={{
           background: "linear-gradient(135deg,#1e1b4b,#4338ca)",
-          padding: "22px 26px", color: T.white,
+          padding: "18px 20px", color: T.white,
           display: "flex", justifyContent: "space-between", alignItems: "center",
-          position: "sticky", top: 0, zIndex: 1,
+          position: "sticky", top: 0, zIndex: 1, boxSizing: "border-box",
         }}>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: 17, display: "flex", alignItems: "center", gap: 8 }}>
-              <span className="msym" style={{ fontSize: 20 }}>smart_toy</span>
-              AI Deliverable Audit
+          <div style={{ minWidth: 0, flex: 1, marginRight: 12 }}>
+            <div style={{ fontWeight: 800, fontSize: 16, display: "flex", alignItems: "center", gap: 8 }}>
+              <span className="msym" style={{ fontSize: 20, flexShrink: 0 }}>smart_toy</span>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>AI Deliverable Audit</span>
             </div>
-            <div style={{ fontSize: 12, opacity: .65, marginTop: 3 }}>{tx.title}</div>
+            <div style={{ fontSize: 12, opacity: .75, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.title}</div>
           </div>
           <button
             onClick={onClose}
             style={{
-              background: "rgba(255,255,255,.12)", border: "none", color: T.white,
+              background: "rgba(255,255,255,.14)", border: "none", color: T.white,
               borderRadius: "50%", width: 32, height: 32, cursor: "pointer",
               fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0,
             }}
           >×</button>
         </div>
 
-        <div style={{ padding: "26px" }}>
+        <div style={{ padding: "20px 18px", boxSizing: "border-box" }}>
 
           {/* ── Loading state ── */}
           {loading ? (
-            <div style={{ textAlign: "center", padding: "52px 0" }}>
-              <span className="msym" style={{ fontSize: 48, color: T.primary, display: "block", marginBottom: 16, animation: "pulse 1.5s ease infinite" }}>
+            <div style={{ textAlign: "center", padding: "40px 0" }}>
+              <span className="msym" style={{ fontSize: 44, color: T.primary, display: "block", marginBottom: 14, animation: "pulse 1.5s ease infinite" }}>
                 smart_toy
               </span>
               <div style={{ fontWeight: 700, fontSize: 16, color: T.primary, marginBottom: 8 }}>
                 Analysing deliverable…
               </div>
-              <p style={{ fontSize: 13, color: T.gray500, lineHeight: 1.7, marginBottom: 22 }}>
+              <p style={{ fontSize: 13, color: T.gray500, lineHeight: 1.6, marginBottom: 20 }}>
                 Checking scope compliance, reviewing evidence, and calculating risk score.
               </p>
               {["Reviewing submitted files…", "Checking scope compliance…", "Running evidence analysis…", "Calculating risk score…"].map((s, i) => (
@@ -163,31 +164,32 @@ const AuditModal = ({ tx, onClose, onApprove, onRevision }) => {
             <>
               {/* ── Score card ── */}
               <div style={{
-                display: "flex", alignItems: "center", gap: 18,
-                background: T.offWhite, borderRadius: 14, padding: "18px 20px", marginBottom: 22,
+                display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14,
+                background: T.offWhite, borderRadius: 14, padding: "16px 18px", marginBottom: 20,
+                boxSizing: "border-box",
               }}>
                 <div style={{
-                  width: 72, height: 72, borderRadius: "50%",
+                  width: 64, height: 64, borderRadius: "50%",
                   background: overallColor(result) + "16",
                   border: `3px solid ${overallColor(result)}`,
                   display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                 }}>
-                  <div style={{ fontWeight: 800, fontSize: 22, color: overallColor(result) }}>
+                  <div style={{ fontWeight: 800, fontSize: 20, color: overallColor(result) }}>
                     {result.score}
                   </div>
                 </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 15, color: T.primary, marginBottom: 4 }}>
+                <div style={{ flex: "1 1 180px", minWidth: 140 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14.5, color: T.primary, marginBottom: 3 }}>
                     {overallLabel(result.status)}
                   </div>
-                  <p style={{ fontSize: 12.5, color: T.gray600, lineHeight: 1.65, margin: 0 }}>
+                  <p style={{ fontSize: 12.5, color: T.gray600, lineHeight: 1.55, margin: 0, wordBreak: "break-word" }}>
                     {clean(result.summary)}
                   </p>
                 </div>
-                <div style={{ textAlign: "center", flexShrink: 0 }}>
-                  <div style={{ fontSize: 11, color: T.gray400, marginBottom: 4 }}>Risk Score</div>
+                <div style={{ textAlign: "center", flexShrink: 0, marginLeft: "auto" }}>
+                  <div style={{ fontSize: 11, color: T.gray400, marginBottom: 2 }}>Risk Score</div>
                   <div style={{
-                    fontSize: 22, fontWeight: 800,
+                    fontSize: 20, fontWeight: 800,
                     color: result.risk === "low" ? T.green : result.risk === "medium" ? T.accent : T.red,
                   }}>
                     {result.riskScore}
@@ -206,12 +208,12 @@ const AuditModal = ({ tx, onClose, onApprove, onRevision }) => {
                 <div style={{ marginBottom: 20 }}>
                   <div style={{
                     fontWeight: 700, fontSize: 13.5, color: T.primary, marginBottom: 10,
-                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                    display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8,
                   }}>
                     <span>Scope Requirement Audit</span>
                     <span style={{
                       fontSize: 11, color: T.gray500, fontWeight: 500,
-                      background: T.offWhite, padding: "2px 8px", borderRadius: 8,
+                      background: T.offWhite, padding: "2px 8px", borderRadius: 8, flexShrink: 0,
                     }}>
                       {verifiedCount}/{totalCount} Verified
                     </span>
@@ -230,24 +232,25 @@ const AuditModal = ({ tx, onClose, onApprove, onRevision }) => {
                         padding: "12px 14px", background: T.offWhite,
                         borderRadius: 10, marginBottom: 8,
                         border: `1px solid ${color}30`,
+                        boxSizing: "border-box",
                       }}>
                         <div style={{
-                          display: "flex", justifyContent: "space-between",
-                          alignItems: "flex-start", gap: 8, marginBottom: reason ? 6 : 0,
+                          display: "flex", flexWrap: "wrap", justifyContent: "space-between",
+                          alignItems: "flex-start", gap: 6, marginBottom: reason ? 6 : 0,
                         }}>
-                          <div style={{ fontWeight: 700, fontSize: 13, color: T.primary }}>
+                          <div style={{ fontWeight: 700, fontSize: 13, color: T.primary, flex: "1 1 180px", minWidth: 140, wordBreak: "break-word" }}>
                             {req.requirement}
                           </div>
                           <span style={{
                             fontSize: 10.5, fontWeight: 700, color,
                             background: color + "15", padding: "2px 8px",
-                            borderRadius: 12, whiteSpace: "nowrap", flexShrink: 0,
+                            borderRadius: 12, flexShrink: 0, marginLeft: "auto",
                           }}>
                             {label}{score !== null ? ` • ${score}/100` : ""}
                           </span>
                         </div>
                         {reason && (
-                          <div style={{ fontSize: 12, color: T.gray600, lineHeight: 1.5 }}>
+                          <div style={{ fontSize: 12, color: T.gray600, lineHeight: 1.5, wordBreak: "break-word" }}>
                             {reason}
                           </div>
                         )}
@@ -257,6 +260,7 @@ const AuditModal = ({ tx, onClose, onApprove, onRevision }) => {
                               <span key={vi} style={{
                                 fontSize: 10, color: T.green,
                                 background: T.green + "12", borderRadius: 8, padding: "1px 7px",
+                                wordBreak: "break-all",
                               }}>{v}</span>
                             ))}
                           </div>
@@ -270,29 +274,30 @@ const AuditModal = ({ tx, onClose, onApprove, onRevision }) => {
               {/* ── Technical Checks ── */}
               {Array.isArray(result.checks) && result.checks.length > 0 && (
                 <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13.5, color: T.primary, marginBottom: 12 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13.5, color: T.primary, marginBottom: 10 }}>
                     Technical Checks
                   </div>
                   {result.checks.map((c, i) => {
                     const note = clean(c.note) || "Verified against submitted evidence.";
                     return (
                       <div key={i} style={{
-                        display: "flex", alignItems: "flex-start", gap: 10,
-                        padding: "10px 13px", background: T.offWhite,
+                        display: "flex", flexWrap: "wrap", alignItems: "flex-start", gap: 8,
+                        padding: "10px 12px", background: T.offWhite,
                         borderRadius: 9, marginBottom: 7,
                         border: `1px solid ${statusColor(c.status)}20`,
+                        boxSizing: "border-box",
                       }}>
                         <span className="msym" style={{ fontSize: 18, flexShrink: 0, marginTop: 1, color: statusColor(c.status) }}>
                           {statusIcon(c.status)}
                         </span>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 600, fontSize: 13, color: T.primary }}>{c.name}</div>
-                          <div style={{ fontSize: 12, color: T.gray500, marginTop: 2 }}>{note}</div>
+                        <div style={{ flex: "1 1 160px", minWidth: 130 }}>
+                          <div style={{ fontWeight: 600, fontSize: 13, color: T.primary, wordBreak: "break-word" }}>{c.name}</div>
+                          <div style={{ fontSize: 12, color: T.gray500, marginTop: 2, wordBreak: "break-word" }}>{note}</div>
                         </div>
                         <span style={{
                           fontSize: 11, fontWeight: 700, color: statusColor(c.status),
                           background: statusColor(c.status) + "16",
-                          padding: "2px 8px", borderRadius: 20, whiteSpace: "nowrap",
+                          padding: "2px 8px", borderRadius: 20, flexShrink: 0, marginLeft: "auto",
                         }}>{c.status}</span>
                       </div>
                     );
@@ -304,24 +309,25 @@ const AuditModal = ({ tx, onClose, onApprove, onRevision }) => {
               {result.recommendation && (
                 <div style={{
                   background: "#eff6ff", border: "1px solid #bfdbfe",
-                  borderRadius: 10, padding: "13px 15px", marginBottom: 22,
+                  borderRadius: 10, padding: "12px 14px", marginBottom: 20,
+                  boxSizing: "border-box", wordBreak: "break-word",
                 }}>
                   <div style={{
                     fontWeight: 700, fontSize: 13, color: T.primary, marginBottom: 5,
                     display: "flex", alignItems: "center", gap: 6,
                   }}>
-                    <span className="msym" style={{ fontSize: 16 }}>smart_toy</span>
+                    <span className="msym" style={{ fontSize: 16, flexShrink: 0 }}>smart_toy</span>
                     AI Recommendation
                   </div>
-                  <p style={{ fontSize: 13, color: "#1e40af", lineHeight: 1.65, margin: 0 }}>
+                  <p style={{ fontSize: 13, color: "#1e40af", lineHeight: 1.6, margin: 0, wordBreak: "break-word" }}>
                     {clean(result.recommendation)}
                   </p>
                 </div>
               )}
 
               {/* ── Action buttons ── */}
-              <div style={{ display: "flex", gap: 9 }}>
-                <Btn variant="outline" onClick={onClose} style={{ flex: 1, fontSize: 13 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <Btn variant="outline" onClick={onClose} style={{ flex: "1 1 120px", fontSize: 13, minWidth: 100 }}>
                   Close Report
                 </Btn>
                 {result.status !== "revision_required" && (
@@ -329,7 +335,7 @@ const AuditModal = ({ tx, onClose, onApprove, onRevision }) => {
                     variant="green"
                     disabled={isInactive}
                     onClick={async () => { if (isInactive) return; await onApprove(); onClose(); }}
-                    style={{ flex: 1, fontSize: 13, opacity: isInactive ? 0.55 : 1, cursor: isInactive ? "not-allowed" : "pointer" }}
+                    style={{ flex: "1 1 140px", minWidth: 130, fontSize: 13, opacity: isInactive ? 0.55 : 1, cursor: isInactive ? "not-allowed" : "pointer" }}
                   >
                     <span className="msym" style={{ fontSize: 16 }}>check_circle</span>
                     {isCompleted ? "Funds Released" : isDisputed ? "Under Dispute" : "Approve & Release →"}
@@ -339,7 +345,7 @@ const AuditModal = ({ tx, onClose, onApprove, onRevision }) => {
                   <Btn
                     variant="accent"
                     onClick={async () => { await onRevision(); onClose(); }}
-                    style={{ flex: 1, fontSize: 13 }}
+                    style={{ flex: "1 1 140px", minWidth: 130, fontSize: 13 }}
                   >
                     <span className="msym" style={{ fontSize: 16 }}>refresh</span>
                     Request Revision
