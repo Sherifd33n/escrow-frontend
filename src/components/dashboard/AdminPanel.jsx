@@ -11,12 +11,20 @@ import { users, admin } from "../../utils/api";
 import { sseEmitter } from "../../utils/useSSE";
 import AIDisputeAnalysisCard from "./AIDisputeAnalysisCard";
 import DisputeResolveModal from "./DisputeResolveModal";
+import KYCEditModal from "./KYCEditModal";
+import AdminSubscriptionModal from "./AdminSubscriptionModal";
 
 const AdminPanel = ({ onBack, onLogout }) => {
   const handleExit = onBack || onLogout;
   const [tab, setTab] = useState("overview");
   const [kycQueue, setKycQueue] = useState([]);
   const [kycLoading, setKycLoading] = useState(false);
+  const [kycFilter, setKycFilter] = useState({
+    status: "",
+    type: "",
+    search: "",
+  });
+  const [editingKyc, setEditingKyc] = useState(null);
 
   const [portfolioQueue, setPortfolioQueue] = useState([]);
   const [portfolioLoading, setPortfolioLoading] = useState(false);
@@ -36,6 +44,12 @@ const AdminPanel = ({ onBack, onLogout }) => {
   const [usersList, setUsersList] = useState([]);
   const [userStats, setUserStats] = useState(null);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [userFilters, setUserFilters] = useState({
+    search: "",
+    role: "",
+    plan: "",
+  });
+  const [subscribingUser, setSubscribingUser] = useState(null);
 
   // Admin Reviews state
   const [adminReviewsList, setAdminReviewsList] = useState([]);
@@ -69,14 +83,23 @@ const AdminPanel = ({ onBack, onLogout }) => {
     return token ? `${cleanPath}${separator}token=${encodeURIComponent(token)}` : cleanPath;
   };
 
-  const loadKYCQueue = useCallback(() => {
-    users.getKYCQueue().then(({ data, error }) => {
-      setKycLoading(false);
-      if (!error) {
-        setKycQueue(data || []);
-      }
-    });
-  }, []);
+  const loadKYCQueue = useCallback(
+    (filters = kycFilter) => {
+      setKycLoading(true);
+      const activeFilters = {};
+      if (filters.status) activeFilters.status = filters.status;
+      if (filters.type) activeFilters.type = filters.type;
+      if (filters.search) activeFilters.search = filters.search.trim();
+
+      users.getKYCQueue(activeFilters).then(({ data, error }) => {
+        setKycLoading(false);
+        if (!error) {
+          setKycQueue(data || []);
+        }
+      });
+    },
+    [kycFilter]
+  );
 
   const loadPortfolioQueue = useCallback(() => {
     users.getPortfolioQueue().then(({ data, error }) => {
@@ -137,15 +160,24 @@ const AdminPanel = ({ onBack, onLogout }) => {
     });
   }, []);
 
-  const loadUsers = useCallback(() => {
-    admin.getUsers({ limit: 50 }).then(({ data, error }) => {
-      setUsersLoading(false);
-      if (!error && data) {
-        setUsersList(data.data || []);
-        setUserStats(data.stats || null);
-      }
-    });
-  }, []);
+  const loadUsers = useCallback(
+    (filters = userFilters) => {
+      setUsersLoading(true);
+      const params = { limit: 100 };
+      if (filters.search) params.search = filters.search.trim();
+      if (filters.role) params.role = filters.role;
+      if (filters.plan) params.plan = filters.plan;
+
+      admin.getUsers(params).then(({ data, error }) => {
+        setUsersLoading(false);
+        if (!error && data) {
+          setUsersList(data.data || []);
+          setUserStats(data.stats || null);
+        }
+      });
+    },
+    [userFilters]
+  );
 
   /*
   const handleImpersonate = async (targetUser) => {
@@ -304,6 +336,42 @@ const AdminPanel = ({ onBack, onLogout }) => {
       if (error) {
         alert(error);
         setKycLoading(false);
+      } else {
+        loadKYCQueue();
+      }
+    });
+  };
+
+  const handleResetKyc = (id) => {
+    if (
+      !window.confirm(
+        "Reset this KYC submission back to Pending status? The user's tier will be adjusted accordingly."
+      )
+    )
+      return;
+    setKycLoading(true);
+    users.updateKYCSubmission(id, { status: "pending" }).then(({ error }) => {
+      setKycLoading(false);
+      if (error) {
+        alert(error);
+      } else {
+        loadKYCQueue();
+      }
+    });
+  };
+
+  const handleDeleteKyc = (id) => {
+    if (
+      !window.confirm(
+        "Are you sure you want to permanently delete this KYC submission? This will also recalculate the user's tier."
+      )
+    )
+      return;
+    setKycLoading(true);
+    users.deleteKYCSubmission(id).then(({ error }) => {
+      setKycLoading(false);
+      if (error) {
+        alert(error);
       } else {
         loadKYCQueue();
       }
@@ -1483,27 +1551,65 @@ const AdminPanel = ({ onBack, onLogout }) => {
               padding: "26px",
             }}
           >
-            <h2
+            {/* Header */}
+            <div
               style={{
-                fontFamily: "'Inter',sans-serif",
-                fontSize: 20,
-                color: T.primary,
-                marginBottom: 16,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                flexWrap: "wrap",
+                gap: 12,
+                marginBottom: 20,
               }}
             >
-              User Management
-            </h2>
-            {usersLoading && !userStats && (
-              <p style={{ fontSize: 14, color: T.gray500, margin: "0 0 16px" }}>
-                Loading user stats...
-              </p>
-            )}
+              <div>
+                <h2
+                  style={{
+                    fontFamily: "'Inter',sans-serif",
+                    fontSize: 20,
+                    fontWeight: 800,
+                    color: T.primary,
+                    marginBottom: 4,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <span className="msym" style={{ color: T.accent, fontSize: 24 }}>
+                    manage_accounts
+                  </span>
+                  User Management & Subscriptions
+                </h2>
+                <p style={{ color: T.gray500, fontSize: 13.5, margin: 0 }}>
+                  View all registered accounts, manage KYC levels, and grant or modify member subscription plans.
+                </p>
+              </div>
+
+              <Btn
+                variant="outline"
+                style={{
+                  fontSize: 12.5,
+                  padding: "7px 14px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+                onClick={() => loadUsers()}
+              >
+                <span className="msym" style={{ fontSize: 16 }}>
+                  refresh
+                </span>
+                Refresh
+              </Btn>
+            </div>
+
+            {/* Summary Stat Cards */}
             <div
-              className="g4"
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(4,1fr)",
-                gap: 14,
+                gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+                gap: 12,
+                marginBottom: 20,
               }}
             >
               {[
@@ -1511,39 +1617,62 @@ const AdminPanel = ({ onBack, onLogout }) => {
                   l: "Total Users",
                   v: userStats ? userStats.totalUsers.toLocaleString() : "—",
                   i: "group",
+                  color: T.primary,
+                  bg: T.offWhite,
                 },
                 {
                   l: "Clients",
                   v: userStats ? userStats.totalClients.toLocaleString() : "—",
                   i: "person",
+                  color: "#2563eb",
+                  bg: "#eff6ff",
                 },
                 {
                   l: "Providers",
-                  v: userStats
-                    ? userStats.totalProviders.toLocaleString()
-                    : "—",
-                  i: "build",
+                  v: userStats ? userStats.totalProviders.toLocaleString() : "—",
+                  i: "handyman",
+                  color: "#4f46e5",
+                  bg: "#eef2ff",
                 },
                 {
-                  l: "Verified",
+                  l: "Subscribed (Paid)",
+                  v: userStats ? (userStats.totalSubscribed || 0).toLocaleString() : "—",
+                  sub: userStats
+                    ? `${userStats.totalSilver || 0} Silver · ${userStats.totalGold || 0} Gold · ${userStats.totalDiamond || 0} Diamond`
+                    : null,
+                  i: "workspace_premium",
+                  color: "#d97706",
+                  bg: "#fffbeb",
+                },
+                {
+                  l: "KYC Verified",
                   v: userStats ? userStats.verifiedUsers.toLocaleString() : "—",
                   i: "verified_user",
+                  color: "#16a34a",
+                  bg: "#f0fdf4",
                 },
               ].map((u) => (
                 <div
                   key={u.l}
                   style={{
-                    background: T.offWhite,
+                    background: u.bg,
+                    border: `1px solid ${T.gray200}`,
                     borderRadius: 12,
-                    padding: "16px",
-                    textAlign: "center",
+                    padding: "14px 16px",
                   }}
                 >
-                  <div style={{ fontSize: 26, marginBottom: 6 }}>
-                    <span
-                      className="msym"
-                      style={{ fontSize: 20, color: T.primary }}
-                    >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: 4,
+                    }}
+                  >
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: u.color, textTransform: "uppercase", letterSpacing: ".04em" }}>
+                      {u.l}
+                    </span>
+                    <span className="msym" style={{ fontSize: 18, color: u.color, opacity: 0.85 }}>
                       {u.i}
                     </span>
                   </div>
@@ -1551,49 +1680,211 @@ const AdminPanel = ({ onBack, onLogout }) => {
                     style={{
                       fontFamily: "'Inter',sans-serif",
                       fontWeight: 800,
-                      fontSize: 20,
-                      color: T.primary,
+                      fontSize: 22,
+                      color: u.color,
                     }}
                   >
                     {u.v}
                   </div>
-                  <div style={{ fontSize: 12, color: T.gray500, marginTop: 2 }}>
-                    {u.l}
-                  </div>
+                  {u.sub && (
+                    <div style={{ fontSize: 10.5, color: T.gray500, marginTop: 4, fontWeight: 500 }}>
+                      {u.sub}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
-            {!usersLoading && usersList.length > 0 && (
-              <div style={{ marginTop: 20, overflowX: "auto" }}>
+
+            {/* Filter & Search Bar */}
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 10,
+                alignItems: "center",
+                background: T.offWhite,
+                padding: "12px 16px",
+                borderRadius: 12,
+                border: `1px solid ${T.gray200}`,
+                marginBottom: 20,
+              }}
+            >
+              {/* Search Box */}
+              <div style={{ position: "relative", flex: "1 1 220px", minWidth: 180 }}>
+                <span
+                  className="msym"
+                  style={{
+                    position: "absolute",
+                    left: 10,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    fontSize: 16,
+                    color: T.gray400,
+                  }}
+                >
+                  search
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search user by name or email..."
+                  value={userFilters.search}
+                  onChange={(e) => {
+                    const next = { ...userFilters, search: e.target.value };
+                    setUserFilters(next);
+                    loadUsers(next);
+                  }}
+                  style={{
+                    ...fs,
+                    paddingLeft: 32,
+                    paddingTop: 7,
+                    paddingBottom: 7,
+                    fontSize: 13,
+                    width: "100%",
+                    borderRadius: 8,
+                    background: T.white,
+                  }}
+                />
+              </div>
+
+              {/* Role Select */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: T.gray500 }}>Role:</span>
+                <select
+                  value={userFilters.role}
+                  onChange={(e) => {
+                    const next = { ...userFilters, role: e.target.value };
+                    setUserFilters(next);
+                    loadUsers(next);
+                  }}
+                  style={{
+                    ...fs,
+                    fontSize: 12.5,
+                    padding: "6px 10px",
+                    borderRadius: 8,
+                    background: T.white,
+                    width: "auto",
+                  }}
+                >
+                  <option value="">All Roles</option>
+                  <option value="client">Client</option>
+                  <option value="provider">Provider</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+
+              {/* Subscription Plan Select */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: T.gray500 }}>Plan:</span>
+                <select
+                  value={userFilters.plan}
+                  onChange={(e) => {
+                    const next = { ...userFilters, plan: e.target.value };
+                    setUserFilters(next);
+                    loadUsers(next);
+                  }}
+                  style={{
+                    ...fs,
+                    fontSize: 12.5,
+                    padding: "6px 10px",
+                    borderRadius: 8,
+                    background: T.white,
+                    width: "auto",
+                  }}
+                >
+                  <option value="">All Plans</option>
+                  <option value="diamond">Diamond (Tier 4)</option>
+                  <option value="gold">Gold (Tier 3)</option>
+                  <option value="silver">Silver (Tier 2)</option>
+                  <option value="free">Free / None</option>
+                </select>
+              </div>
+
+              {/* Reset Filters */}
+              {(userFilters.search || userFilters.role || userFilters.plan) && (
+                <button
+                  onClick={() => {
+                    const reset = { search: "", role: "", plan: "" };
+                    setUserFilters(reset);
+                    loadUsers(reset);
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: T.red,
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: "4px 8px",
+                  }}
+                >
+                  <span className="msym" style={{ fontSize: 15 }}>
+                    close
+                  </span>
+                  Clear Filters
+                </button>
+              )}
+            </div>
+
+            {/* Loading / Users Table */}
+            {usersLoading && usersList.length === 0 && (
+              <p style={{ fontSize: 14, color: T.gray500, margin: "20px 0", textAlign: "center" }}>
+                Loading users...
+              </p>
+            )}
+
+            {!usersLoading && usersList.length === 0 && (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "40px 20px",
+                  background: T.offWhite,
+                  borderRadius: 12,
+                  border: `1px dashed ${T.gray200}`,
+                }}
+              >
+                <span className="msym" style={{ fontSize: 32, color: T.gray400, marginBottom: 6, display: "block" }}>
+                  person_search
+                </span>
+                <div style={{ fontWeight: 700, fontSize: 14, color: T.primary }}>
+                  No users found matching your filters.
+                </div>
+              </div>
+            )}
+
+            {usersList.length > 0 && (
+              <div style={{ marginTop: 10, overflowX: "auto" }}>
                 <table
                   style={{
                     width: "100%",
                     borderCollapse: "collapse",
-                    minWidth: 600,
+                    minWidth: 800,
                   }}
                 >
                   <thead>
                     <tr style={{ background: T.offWhite }}>
                       {[
-                        "Name",
-                        "Email",
+                        "User",
                         "Role",
                         "KYC Status",
+                        "Subscription Plan",
                         "Wallet Balance",
                         "Joined",
-                        // "Actions",
+                        "Actions",
                       ].map((h) => (
                         <th
                           key={h}
                           style={{
-                            padding: "10px 14px",
+                            padding: "11px 14px",
                             textAlign: "left",
-                            fontSize: 10.5,
+                            fontSize: 11,
                             fontWeight: 700,
                             color: T.gray500,
                             textTransform: "uppercase",
                             letterSpacing: ".06em",
-                            borderBottom: `1px solid ${T.gray100}`,
+                            borderBottom: `1px solid ${T.gray200}`,
                           }}
                         >
                           {h}
@@ -1602,115 +1893,208 @@ const AdminPanel = ({ onBack, onLogout }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {usersList.map((u, i) => (
-                      <tr
-                        key={u.id}
-                        style={{
-                          borderBottom:
-                            i < usersList.length - 1
-                              ? `1px solid ${T.gray100}`
-                              : "none",
-                        }}
-                      >
-                        <td
+                    {usersList.map((u, i) => {
+                      const planMeta = {
+                        diamond: {
+                          name: "Diamond",
+                          bg: "#faf5ff",
+                          border: "#d8b4fe",
+                          color: "#7c3aed",
+                          icon: "diamond",
+                        },
+                        gold: {
+                          name: "Gold",
+                          bg: "#fffbeb",
+                          border: "#fde68a",
+                          color: "#d97706",
+                          icon: "workspace_premium",
+                        },
+                        silver: {
+                          name: "Silver",
+                          bg: "#f1f5f9",
+                          border: "#cbd5e1",
+                          color: "#475569",
+                          icon: "stars",
+                        },
+                      }[u.subscription_plan?.toLowerCase()] || null;
+
+                      const isSubActive = u.subscription_status === "active";
+
+                      return (
+                        <tr
+                          key={u.id}
                           style={{
-                            padding: "11px 14px",
-                            fontWeight: 600,
-                            fontSize: 13.5,
-                            color: T.primary,
+                            borderBottom:
+                              i < usersList.length - 1
+                                ? `1px solid ${T.gray100}`
+                                : "none",
+                            transition: "background .15s",
                           }}
                         >
-                          {u.name}
-                        </td>
-                        <td
-                          style={{
-                            padding: "11px 14px",
-                            fontSize: 13,
-                            color: T.gray700,
-                          }}
-                        >
-                          {u.email}
-                        </td>
-                        <td style={{ padding: "11px 14px" }}>
-                          <span
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 700,
-                              background:
-                                u.role === "admin"
-                                  ? T.accent + "18"
-                                  : T.primary + "12",
-                              color: u.role === "admin" ? T.accent : T.primary,
-                              padding: "3px 8px",
-                              borderRadius: 5,
-                              textTransform: "capitalize",
-                            }}
-                          >
-                            {u.role}
-                          </span>
-                        </td>
-                        <td style={{ padding: "11px 14px" }}>
-                          <span
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 700,
-                              color:
-                                u.kyc_status === "approved"
-                                  ? T.green
-                                  : u.kyc_status === "rejected"
-                                    ? T.red
-                                    : T.gray500,
-                            }}
-                          >
-                            {u.kyc_status ? u.kyc_status.toUpperCase() : "NONE"}
-                          </span>
-                        </td>
-                        <td
-                          style={{
-                            padding: "11px 14px",
-                            fontWeight: 700,
-                            color: T.primary,
-                            fontFamily: "'Inter',sans-serif",
-                          }}
-                        >
-                          ${parseFloat(u.wallet_balance).toLocaleString()}
-                        </td>
-                        <td
-                          style={{
-                            padding: "11px 14px",
-                            fontSize: 12,
-                            color: T.gray400,
-                          }}
-                        >
-                          {new Date(u.created_at).toLocaleDateString()}
-                        </td>
-                        {/* <td style={{ padding: "11px 14px" }}>
-                          <button
-                            onClick={() => handleImpersonate(u)}
-                            style={{
-                              background: "linear-gradient(135deg, #1e1b4b, #3730a3)",
-                              color: "#fff",
-                              border: "none",
-                              borderRadius: 6,
-                              padding: "6px 12px",
-                              fontSize: 12,
-                              fontWeight: 600,
-                              cursor: "pointer",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 5,
-                              whiteSpace: "nowrap",
-                            }}
-                            title={`Log in to dashboard as ${u.name}`}
-                          >
-                            <span className="msym" style={{ fontSize: 14 }}>
-                              login
+                          {/* User info */}
+                          <td style={{ padding: "12px 14px" }}>
+                            <div style={{ fontWeight: 700, fontSize: 14, color: T.primary }}>
+                              {u.name}
+                            </div>
+                            <div style={{ fontSize: 12, color: T.gray500 }}>
+                              {u.email}
+                            </div>
+                          </td>
+
+                          {/* Role */}
+                          <td style={{ padding: "12px 14px" }}>
+                            <span
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                background:
+                                  u.role === "admin"
+                                    ? T.accent + "18"
+                                    : T.primary + "12",
+                                color: u.role === "admin" ? T.accent : T.primary,
+                                padding: "3px 8px",
+                                borderRadius: 5,
+                                textTransform: "capitalize",
+                              }}
+                            >
+                              {u.role}
                             </span>
-                            Login As
-                          </button>
-                        </td> */}
-                      </tr>
-                    ))}
+                          </td>
+
+                          {/* KYC Status */}
+                          <td style={{ padding: "12px 14px" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  color:
+                                    u.kyc_status === "approved"
+                                      ? T.green
+                                      : u.kyc_status === "rejected"
+                                        ? T.red
+                                        : T.gray500,
+                                }}
+                              >
+                                {u.kyc_status ? u.kyc_status.toUpperCase() : "NONE"}
+                              </span>
+                              {u.kyc_tier !== undefined && (
+                                <span style={{ fontSize: 10.5, color: T.gray400 }}>
+                                  Tier {u.kyc_tier || 1}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Subscription Plan Column */}
+                          <td style={{ padding: "12px 14px" }}>
+                            {planMeta && isSubActive ? (
+                              <div style={{ display: "inline-flex", flexDirection: "column", gap: 2 }}>
+                                <span
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    fontSize: 11.5,
+                                    fontWeight: 800,
+                                    padding: "3px 9px",
+                                    borderRadius: 14,
+                                    background: planMeta.bg,
+                                    color: planMeta.color,
+                                    border: `1px solid ${planMeta.border}`,
+                                    width: "fit-content",
+                                  }}
+                                >
+                                  <span className="msym" style={{ fontSize: 13 }}>
+                                    {planMeta.icon}
+                                  </span>
+                                  {planMeta.name}
+                                </span>
+                                <span style={{ fontSize: 10.5, color: T.gray500, paddingLeft: 4 }}>
+                                  Active · {u.subscription_billing_cycle || "monthly"}
+                                </span>
+                              </div>
+                            ) : u.subscription_plan && !isSubActive ? (
+                              <div style={{ display: "inline-flex", flexDirection: "column", gap: 2 }}>
+                                <span
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    padding: "2px 7px",
+                                    borderRadius: 6,
+                                    background: T.gray100,
+                                    color: T.gray600,
+                                    width: "fit-content",
+                                    textTransform: "capitalize",
+                                  }}
+                                >
+                                  {u.subscription_plan} ({u.subscription_status || "inactive"})
+                                </span>
+                              </div>
+                            ) : (
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  padding: "2px 8px",
+                                  borderRadius: 6,
+                                  background: T.offWhite,
+                                  color: T.gray500,
+                                  border: `1px solid ${T.gray200}`,
+                                }}
+                              >
+                                Free
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Wallet Balance */}
+                          <td
+                            style={{
+                              padding: "12px 14px",
+                              fontWeight: 700,
+                              color: T.primary,
+                              fontFamily: "'Inter',sans-serif",
+                              fontSize: 13,
+                            }}
+                          >
+                            ${parseFloat(u.wallet_balance).toLocaleString()}
+                          </td>
+
+                          {/* Joined Date */}
+                          <td
+                            style={{
+                              padding: "12px 14px",
+                              fontSize: 12,
+                              color: T.gray500,
+                            }}
+                          >
+                            {new Date(u.created_at).toLocaleDateString()}
+                          </td>
+
+                          {/* Actions Column */}
+                          <td style={{ padding: "12px 14px" }}>
+                            <Btn
+                              variant="outline"
+                              style={{
+                                fontSize: 11.5,
+                                padding: "6px 12px",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 5,
+                                whiteSpace: "nowrap",
+                              }}
+                              onClick={() => setSubscribingUser(u)}
+                            >
+                              <span className="msym" style={{ fontSize: 15, color: isSubActive ? "#d97706" : T.accent }}>
+                                card_membership
+                              </span>
+                              {isSubActive ? "Manage Plan" : "Subscribe"}
+                            </Btn>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1727,145 +2111,850 @@ const AdminPanel = ({ onBack, onLogout }) => {
               padding: "26px",
             }}
           >
-            <h2
+            {/* Header */}
+            <div
               style={{
-                fontFamily: "'Inter',sans-serif",
-                fontSize: 20,
-                color: T.primary,
-                marginBottom: 6,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                flexWrap: "wrap",
+                gap: 12,
+                marginBottom: 20,
               }}
             >
-              KYC Verification Queue
-            </h2>
-            <p style={{ color: T.gray500, fontSize: 14, marginBottom: 20 }}>
-              {kycQueue.length} pending manual verifications.
-            </p>
-            {kycLoading && (
-              <p style={{ fontSize: 13.5, color: T.gray500 }}>
-                Loading queue...
-              </p>
-            )}
-            {!kycLoading && kycQueue.length === 0 && (
-              <p style={{ fontSize: 13.5, color: T.gray500 }}>
-                No pending verification requests.
-              </p>
-            )}
-            {!kycLoading &&
-              kycQueue.map((u, i) => (
-                <div
-                  key={u.id || i}
+              <div>
+                <h2
                   style={{
-                    border: `1px solid ${T.gray100}`,
-                    borderRadius: 10,
-                    padding: "14px 18px",
+                    fontFamily: "'Inter',sans-serif",
+                    fontSize: 20,
+                    fontWeight: 800,
+                    color: T.primary,
+                    marginBottom: 4,
                     display: "flex",
-                    justifyContent: "space-between",
                     alignItems: "center",
-                    marginBottom: 10,
-                    flexWrap: "wrap",
-                    gap: 10,
+                    gap: 8,
                   }}
                 >
-                  <div>
-                    <div
+                  <span
+                    className="msym"
+                    style={{ color: T.accent, fontSize: 24 }}
+                  >
+                    verified_user
+                  </span>
+                  KYC Verification & Submissions
+                </h2>
+                <p style={{ color: T.gray500, fontSize: 13.5, margin: 0 }}>
+                  Manage, review, edit, and audit all identity and business KYC submissions across all statuses.
+                </p>
+              </div>
+
+              <Btn
+                variant="outline"
+                style={{
+                  fontSize: 12.5,
+                  padding: "7px 14px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+                onClick={() => loadKYCQueue()}
+              >
+                <span className="msym" style={{ fontSize: 16 }}>
+                  refresh
+                </span>
+                Refresh
+              </Btn>
+            </div>
+
+            {/* Summary Stat Cards */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: 12,
+                marginBottom: 22,
+              }}
+            >
+              {[
+                {
+                  key: "",
+                  label: "All Submissions",
+                  count: kycQueue.length,
+                  icon: "folder_shared",
+                  bg: T.offWhite,
+                  border: T.gray200,
+                  color: T.primary,
+                  active: kycFilter.status === "",
+                },
+                {
+                  key: "pending",
+                  label: "Pending Review",
+                  count: kycQueue.filter((k) => k.status === "pending").length,
+                  icon: "hourglass_top",
+                  bg: "#fffbeb",
+                  border: "#fde68a",
+                  color: "#b45309",
+                  active: kycFilter.status === "pending",
+                },
+                {
+                  key: "approved",
+                  label: "Approved",
+                  count: kycQueue.filter((k) => k.status === "approved").length,
+                  icon: "verified",
+                  bg: "#f0fdf4",
+                  border: "#bbf7d0",
+                  color: "#15803d",
+                  active: kycFilter.status === "approved",
+                },
+                {
+                  key: "rejected",
+                  label: "Rejected",
+                  count: kycQueue.filter((k) => k.status === "rejected").length,
+                  icon: "cancel",
+                  bg: "#fef2f2",
+                  border: "#fecaca",
+                  color: "#b91c1c",
+                  active: kycFilter.status === "rejected",
+                },
+              ].map((stat) => (
+                <div
+                  key={stat.label}
+                  onClick={() => {
+                    const next = { ...kycFilter, status: stat.key };
+                    setKycFilter(next);
+                    loadKYCQueue(next);
+                  }}
+                  style={{
+                    background: stat.bg,
+                    border: `1.5px solid ${stat.active ? stat.color : stat.border}`,
+                    borderRadius: 12,
+                    padding: "14px 16px",
+                    cursor: "pointer",
+                    transition: "all .15s ease",
+                    boxShadow: stat.active ? `0 0 0 2px ${stat.border}` : "none",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: 6,
+                    }}
+                  >
+                    <span
                       style={{
+                        fontSize: 12,
                         fontWeight: 700,
-                        fontSize: 14,
-                        color: T.primary,
+                        color: stat.color,
+                        textTransform: "uppercase",
+                        letterSpacing: ".04em",
                       }}
                     >
-                      {u.user_name} ({u.user_email})
-                    </div>
-                    <div style={{ fontSize: 12.5, color: T.gray500 }}>
-                      {u.biz_name
-                        ? "Business Verification"
-                        : "Identity Verification"}{" "}
-                      · Phone: {u.phone} · Submitted{" "}
-                      {new Date(u.created_at).toLocaleString()}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 11.5,
-                        color: T.gray400,
-                        marginTop: 4,
-                        display: "flex",
-                        gap: 10,
-                      }}
+                      {stat.label}
+                    </span>
+                    <span
+                      className="msym"
+                      style={{ fontSize: 18, color: stat.color, opacity: 0.85 }}
                     >
-                      {u.id_file && (
-                        <a
-                          href={getSecureFileUrl(u.id_file)}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ color: T.accent, textDecoration: "underline" }}
-                        >
-                          View ID
-                        </a>
-                      )}
-                      {u.selfie_file && (
-                        <a
-                          href={getSecureFileUrl(u.selfie_file)}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{
-                            color: T.accent,
-                            textDecoration: "underline",
-                          }}
-                        >
-                          View Selfie
-                        </a>
-                      )}
-                      {u.biz_file && (
-                        <a
-                          href={getSecureFileUrl(u.biz_file)}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{
-                            color: T.accent,
-                            textDecoration: "underline",
-                          }}
-                        >
-                          View Biz Doc
-                        </a>
-                      )}
-                      {u.incorp_file && (
-                        <a
-                          href={getSecureFileUrl(u.incorp_file)}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{
-                            color: T.accent,
-                            textDecoration: "underline",
-                          }}
-                        >
-                          View Incorp Cert
-                        </a>
-                      )}
-                    </div>
+                      {stat.icon}
+                    </span>
                   </div>
                   <div
-                    style={{ display: "flex", gap: 8, alignItems: "center" }}
+                    style={{
+                      fontSize: 24,
+                      fontWeight: 800,
+                      color: stat.color,
+                    }}
                   >
-                    <Badge color={u.biz_name ? T.accent : T.primary}>
-                      {u.biz_name ? "Premium" : "Standard"}
-                    </Badge>
-                    <Btn
-                      variant="green"
-                      style={{ fontSize: 12, padding: "7px 14px" }}
-                      onClick={() => handleApprove(u.id)}
-                    >
-                      Approve
-                    </Btn>
-                    <Btn
-                      variant="red"
-                      style={{ fontSize: 12, padding: "7px 14px" }}
-                      onClick={() => handleReject(u.id)}
-                    >
-                      Reject
-                    </Btn>
+                    {stat.count}
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* Filter & Search Bar */}
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 10,
+                alignItems: "center",
+                background: T.offWhite,
+                padding: "12px 16px",
+                borderRadius: 12,
+                border: `1px solid ${T.gray200}`,
+                marginBottom: 20,
+              }}
+            >
+              {/* Search Box */}
+              <div
+                style={{
+                  position: "relative",
+                  flex: "1 1 240px",
+                  minWidth: 200,
+                }}
+              >
+                <span
+                  className="msym"
+                  style={{
+                    position: "absolute",
+                    left: 10,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    fontSize: 16,
+                    color: T.gray400,
+                  }}
+                >
+                  search
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search name, email, phone, biz..."
+                  value={kycFilter.search}
+                  onChange={(e) => {
+                    const next = { ...kycFilter, search: e.target.value };
+                    setKycFilter(next);
+                    loadKYCQueue(next);
+                  }}
+                  style={{
+                    ...fs,
+                    paddingLeft: 32,
+                    paddingTop: 7,
+                    paddingBottom: 7,
+                    fontSize: 13,
+                    width: "100%",
+                    borderRadius: 8,
+                    background: T.white,
+                  }}
+                />
+              </div>
+
+              {/* Status Select */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: T.gray500,
+                  }}
+                >
+                  Status:
+                </span>
+                <select
+                  value={kycFilter.status}
+                  onChange={(e) => {
+                    const next = { ...kycFilter, status: e.target.value };
+                    setKycFilter(next);
+                    loadKYCQueue(next);
+                  }}
+                  style={{
+                    ...fs,
+                    fontSize: 12.5,
+                    padding: "6px 10px",
+                    borderRadius: 8,
+                    background: T.white,
+                    width: "auto",
+                  }}
+                >
+                  <option value="">All Statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+
+              {/* Type Select */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: T.gray500,
+                  }}
+                >
+                  Type:
+                </span>
+                <select
+                  value={kycFilter.type}
+                  onChange={(e) => {
+                    const next = { ...kycFilter, type: e.target.value };
+                    setKycFilter(next);
+                    loadKYCQueue(next);
+                  }}
+                  style={{
+                    ...fs,
+                    fontSize: 12.5,
+                    padding: "6px 10px",
+                    borderRadius: 8,
+                    background: T.white,
+                    width: "auto",
+                  }}
+                >
+                  <option value="">All Types</option>
+                  <option value="govt_id">Govt ID (Tier 2)</option>
+                  <option value="business">Business / CAC (Tier 3)</option>
+                </select>
+              </div>
+
+              {/* Reset Filters */}
+              {(kycFilter.status || kycFilter.type || kycFilter.search) && (
+                <button
+                  onClick={() => {
+                    const reset = { status: "", type: "", search: "" };
+                    setKycFilter(reset);
+                    loadKYCQueue(reset);
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: T.red,
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: "4px 8px",
+                  }}
+                >
+                  <span className="msym" style={{ fontSize: 15 }}>
+                    close
+                  </span>
+                  Clear Filters
+                </button>
+              )}
+            </div>
+
+            {/* Loading State */}
+            {kycLoading && (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "40px 0",
+                  color: T.gray500,
+                  fontSize: 14,
+                }}
+              >
+                <span
+                  className="msym"
+                  style={{
+                    fontSize: 24,
+                    animation: "spin 1s linear infinite",
+                    display: "inline-block",
+                    marginBottom: 8,
+                  }}
+                >
+                  progress_activity
+                </span>
+                <div>Loading KYC submissions...</div>
+              </div>
+            )}
+
+            {/* Empty State */}
+            {!kycLoading && kycQueue.length === 0 && (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "48px 20px",
+                  background: T.offWhite,
+                  borderRadius: 12,
+                  border: `1px dashed ${T.gray200}`,
+                }}
+              >
+                <span
+                  className="msym"
+                  style={{
+                    fontSize: 36,
+                    color: T.gray400,
+                    marginBottom: 8,
+                    display: "block",
+                  }}
+                >
+                  assignment_late
+                </span>
+                <div
+                  style={{
+                    fontWeight: 700,
+                    fontSize: 15,
+                    color: T.primary,
+                    marginBottom: 4,
+                  }}
+                >
+                  No KYC submissions found
+                </div>
+                <div style={{ fontSize: 13, color: T.gray500 }}>
+                  {kycFilter.status || kycFilter.type || kycFilter.search
+                    ? "Try adjusting or clearing your filters above."
+                    : "There are currently no KYC submissions in the system."}
+                </div>
+              </div>
+            )}
+
+            {/* KYC List */}
+            {!kycLoading &&
+              kycQueue.map((u, i) => {
+                const statusMeta =
+                  {
+                    pending: {
+                      label: "Pending Review",
+                      bg: "#fef3c7",
+                      color: "#92400e",
+                      border: "#fcd34d",
+                      icon: "hourglass_top",
+                      cardBorder: "#f59e0b",
+                    },
+                    approved: {
+                      label: "Approved",
+                      bg: "#d1fae5",
+                      color: "#065f46",
+                      border: "#6ee7b7",
+                      icon: "check_circle",
+                      cardBorder: "#10b981",
+                    },
+                    rejected: {
+                      label: "Rejected",
+                      bg: "#fee2e2",
+                      color: "#991b1b",
+                      border: "#fca5a5",
+                      icon: "cancel",
+                      cardBorder: "#ef4444",
+                    },
+                  }[u.status || "pending"] || {
+                    label: u.status,
+                    bg: T.gray100,
+                    color: T.gray600,
+                    border: T.gray200,
+                    icon: "help_outline",
+                    cardBorder: T.gray300,
+                  };
+
+                const isBiz =
+                  u.submission_type === "business" ||
+                  !!u.biz_name ||
+                  !!u.biz_file;
+
+                return (
+                  <div
+                    key={u.id || i}
+                    style={{
+                      border: `1px solid ${T.gray200}`,
+                      borderLeft: `5px solid ${statusMeta.cardBorder}`,
+                      borderRadius: 12,
+                      padding: "16px 20px",
+                      marginBottom: 14,
+                      background: T.white,
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                      transition: "box-shadow .15s ease",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                        flexWrap: "wrap",
+                        gap: 12,
+                      }}
+                    >
+                      {/* Left: User & Submission Details */}
+                      <div style={{ flex: "1 1 400px" }}>
+                        {/* Top user row */}
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            flexWrap: "wrap",
+                            marginBottom: 4,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontWeight: 800,
+                              fontSize: 15,
+                              color: T.primary,
+                            }}
+                          >
+                            {u.user_name || "Unknown User"}
+                          </span>
+                          <span style={{ fontSize: 13, color: T.gray500 }}>
+                            ({u.user_email || "no-email"})
+                          </span>
+
+                          {/* Status Badge */}
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              fontSize: 11.5,
+                              fontWeight: 700,
+                              padding: "2px 9px",
+                              borderRadius: 20,
+                              background: statusMeta.bg,
+                              color: statusMeta.color,
+                              border: `1px solid ${statusMeta.border}`,
+                            }}
+                          >
+                            <span className="msym" style={{ fontSize: 13 }}>
+                              {statusMeta.icon}
+                            </span>
+                            {statusMeta.label}
+                          </span>
+
+                          {/* Type Badge */}
+                          <Badge color={isBiz ? T.accent : T.primary}>
+                            {isBiz ? "Business (Tier 3)" : "Govt ID (Tier 2)"}
+                          </Badge>
+
+                          {/* Current Tier */}
+                          {u.current_tier !== undefined && (
+                            <span
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                background: T.offWhite,
+                                color: T.gray600,
+                                padding: "2px 7px",
+                                borderRadius: 6,
+                                border: `1px solid ${T.gray200}`,
+                              }}
+                            >
+                              User Tier {u.current_tier}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Metadata line */}
+                        <div
+                          style={{
+                            fontSize: 12.5,
+                            color: T.gray500,
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: 12,
+                            alignItems: "center",
+                            marginBottom: 6,
+                          }}
+                        >
+                          <span>
+                            <strong>Phone:</strong> {u.phone || "—"}
+                          </span>
+                          <span>•</span>
+                          <span>
+                            <strong>Submitted:</strong>{" "}
+                            {u.created_at
+                              ? new Date(u.created_at).toLocaleString()
+                              : "—"}
+                          </span>
+                          {u.reviewed_at && (
+                            <>
+                              <span>•</span>
+                              <span>
+                                <strong>Reviewed:</strong>{" "}
+                                {new Date(u.reviewed_at).toLocaleDateString()}
+                                {u.reviewer_name ? ` by ${u.reviewer_name}` : ""}
+                              </span>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Identity or Business Details */}
+                        <div
+                          style={{
+                            fontSize: 12.5,
+                            color: T.gray700,
+                            background: T.offWhite,
+                            padding: "8px 12px",
+                            borderRadius: 8,
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: 14,
+                            marginBottom: 8,
+                          }}
+                        >
+                          {isBiz ? (
+                            <>
+                              <div>
+                                <span style={{ color: T.gray500 }}>Biz Name: </span>
+                                <strong>{u.biz_name || "—"}</strong>
+                              </div>
+                              <div>
+                                <span style={{ color: T.gray500 }}>
+                                  CAC / Reg No:{" "}
+                                </span>
+                                <strong>{u.biz_reg || "—"}</strong>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div>
+                                <span style={{ color: T.gray500 }}>ID Type: </span>
+                                <strong>
+                                  {u.id_type
+                                    ? u.id_type.replace(/_/g, " ").toUpperCase()
+                                    : "National ID"}
+                                </strong>
+                              </div>
+                              <div>
+                                <span style={{ color: T.gray500 }}>
+                                  ID Number:{" "}
+                                </span>
+                                <strong>{u.id_number || "—"}</strong>
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Rejection Reason Banner */}
+                        {u.status === "rejected" && u.rejection_reason && (
+                          <div
+                            style={{
+                              background: "#fef2f2",
+                              border: "1px solid #fecaca",
+                              borderRadius: 8,
+                              padding: "8px 12px",
+                              fontSize: 12.5,
+                              color: "#991b1b",
+                              marginBottom: 8,
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 6,
+                            }}
+                          >
+                            <span
+                              className="msym"
+                              style={{ fontSize: 16, marginTop: 1 }}
+                            >
+                              error
+                            </span>
+                            <div>
+                              <strong>Rejection Reason:</strong>{" "}
+                              {u.rejection_reason}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Document Links */}
+                        <div
+                          style={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: 12,
+                            fontSize: 12,
+                          }}
+                        >
+                          {u.id_file && (
+                            <a
+                              href={getSecureFileUrl(u.id_file)}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{
+                                color: T.accent,
+                                fontWeight: 600,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                textDecoration: "none",
+                              }}
+                            >
+                              <span className="msym" style={{ fontSize: 14 }}>
+                                badge
+                              </span>
+                              View ID Doc ↗
+                            </a>
+                          )}
+                          {u.selfie_file && (
+                            <a
+                              href={getSecureFileUrl(u.selfie_file)}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{
+                                color: T.accent,
+                                fontWeight: 600,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                textDecoration: "none",
+                              }}
+                            >
+                              <span className="msym" style={{ fontSize: 14 }}>
+                                face
+                              </span>
+                              View Selfie ↗
+                            </a>
+                          )}
+                          {u.biz_file && (
+                            <a
+                              href={getSecureFileUrl(u.biz_file)}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{
+                                color: T.accent,
+                                fontWeight: 600,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                textDecoration: "none",
+                              }}
+                            >
+                              <span className="msym" style={{ fontSize: 14 }}>
+                                business
+                              </span>
+                              View Business Doc ↗
+                            </a>
+                          )}
+                          {u.incorp_file && (
+                            <a
+                              href={getSecureFileUrl(u.incorp_file)}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{
+                                color: T.accent,
+                                fontWeight: 600,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                textDecoration: "none",
+                              }}
+                            >
+                              <span className="msym" style={{ fontSize: 14 }}>
+                                description
+                              </span>
+                              View Incorp Cert ↗
+                            </a>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Right: Actions Toolbar */}
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 6,
+                          minWidth: 140,
+                          alignItems: "stretch",
+                        }}
+                      >
+                        {/* Edit Button - Always visible for any KYC */}
+                        <Btn
+                          variant="outline"
+                          style={{
+                            fontSize: 12,
+                            padding: "7px 12px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 5,
+                          }}
+                          onClick={() => setEditingKyc(u)}
+                        >
+                          <span className="msym" style={{ fontSize: 14 }}>
+                            edit
+                          </span>
+                          Edit Details
+                        </Btn>
+
+                        {/* Quick Approve Button */}
+                        {u.status !== "approved" && (
+                          <Btn
+                            variant="green"
+                            style={{
+                              fontSize: 12,
+                              padding: "7px 12px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: 5,
+                            }}
+                            onClick={() => handleApprove(u.id)}
+                          >
+                            <span className="msym" style={{ fontSize: 14 }}>
+                              check
+                            </span>
+                            {u.status === "rejected" ? "Re-Approve" : "Approve"}
+                          </Btn>
+                        )}
+
+                        {/* Quick Reject Button */}
+                        {u.status !== "rejected" && (
+                          <Btn
+                            variant="red"
+                            style={{
+                              fontSize: 12,
+                              padding: "7px 12px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: 5,
+                            }}
+                            onClick={() => handleReject(u.id)}
+                          >
+                            <span className="msym" style={{ fontSize: 14 }}>
+                              close
+                            </span>
+                            Reject
+                          </Btn>
+                        )}
+
+                        {/* Reset to Pending Button */}
+                        {u.status !== "pending" && (
+                          <button
+                            onClick={() => handleResetKyc(u.id)}
+                            style={{
+                              background: "none",
+                              border: `1px solid ${T.gray300}`,
+                              borderRadius: 8,
+                              color: T.gray600,
+                              fontSize: 11.5,
+                              fontWeight: 600,
+                              padding: "6px 10px",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: 4,
+                            }}
+                            title="Reset status back to Pending"
+                          >
+                            <span className="msym" style={{ fontSize: 14 }}>
+                              restart_alt
+                            </span>
+                            Reset to Pending
+                          </button>
+                        )}
+
+                        {/* Delete Button */}
+                        <button
+                          onClick={() => handleDeleteKyc(u.id)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: T.red,
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                            padding: "4px 8px",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 4,
+                            opacity: 0.8,
+                          }}
+                          title="Permanently delete this submission"
+                        >
+                          <span className="msym" style={{ fontSize: 14 }}>
+                            delete
+                          </span>
+                          Delete Submission
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         )}
 
@@ -2313,6 +3402,21 @@ const AdminPanel = ({ onBack, onLogout }) => {
             )}
           </div>
         )}
+        {/* KYC Edit Modal */}
+        <KYCEditModal
+          submission={editingKyc}
+          isOpen={!!editingKyc}
+          onClose={() => setEditingKyc(null)}
+          onSaved={loadKYCQueue}
+          getSecureFileUrl={getSecureFileUrl}
+        />
+        {/* Admin Subscription Management Modal */}
+        <AdminSubscriptionModal
+          user={subscribingUser}
+          isOpen={!!subscribingUser}
+          onClose={() => setSubscribingUser(null)}
+          onSaved={loadUsers}
+        />
       </div>
     </div>
   );

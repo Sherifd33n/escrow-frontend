@@ -305,6 +305,11 @@ export const admin = {
   deleteReview: (id) => del(`/admin/reviews/${id}`),
 
   impersonateUser: (userId) => post(`/admin/impersonate/${userId}`),
+
+  subscribeUser: (userId, data) => post(`/admin/users/${userId}/subscribe`, data),
+
+  cancelUserSubscription: (userId, data = {}) =>
+    post(`/admin/users/${userId}/cancel-subscription`, data),
 };
 
 // ─── WALLET ──────────────────────────────────────────────────────
@@ -377,11 +382,22 @@ export const users = {
 
   resetKYC: (body) => post("/users/kyc/reset", body || {}),
 
-  getKYCQueue: () => get("/users/kyc/queue"),
+  getKYCQueue: (params) => {
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set("status", params.status);
+    if (params?.type) qs.set("type", params.type);
+    if (params?.search) qs.set("search", params.search);
+    const q = qs.toString();
+    return get(`/users/kyc/queue${q ? `?${q}` : ""}`);
+  },
 
   approveKYC: (id) => patch(`/users/kyc/approve/${id}`),
 
   rejectKYC: (id, reason) => patch(`/users/kyc/reject/${id}`, { reason }),
+
+  updateKYCSubmission: (id, data) => patch(`/users/kyc/submissions/${id}`, data),
+
+  deleteKYCSubmission: (id) => del(`/users/kyc/submissions/${id}`),
 
   sendPhoneOTP: (phone) => post("/users/phone/send-otp", { phone }),
 
