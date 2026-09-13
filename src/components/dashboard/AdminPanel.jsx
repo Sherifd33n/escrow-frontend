@@ -65,6 +65,9 @@ const AdminPanel = ({ onBack, onLogout }) => {
 
   const getSecureFileUrl = (filePath) => {
     if (!filePath) return "#";
+    if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
+      return filePath;
+    }
     const token =
       sessionStorage.getItem("vp_token") ||
       localStorage.getItem("vp_token") ||
@@ -75,10 +78,7 @@ const AdminPanel = ({ onBack, onLogout }) => {
       ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, "")
       : "http://localhost:4000";
 
-    const cleanPath = filePath.startsWith("http")
-      ? filePath
-      : `${backendBase}${filePath.startsWith("/") ? "" : "/"}${filePath}`;
-
+    const cleanPath = `${backendBase}${filePath.startsWith("/") ? "" : "/"}${filePath}`;
     const separator = cleanPath.includes("?") ? "&" : "?";
     return token ? `${cleanPath}${separator}token=${encodeURIComponent(token)}` : cleanPath;
   };
