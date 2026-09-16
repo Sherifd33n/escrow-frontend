@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { T, fs } from "../../tokens";
 import { Btn, Spin } from "../../components/ui";
 import { wallet, exchangeRate, bankAccounts, withdrawals, payments } from "../../utils/api";
@@ -86,6 +86,8 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
   const [toast, setToast] = useState(null);
   const [history, setHistory] = useState([]);
   const [usdToNgn, setUsdToNgn] = useState(1548.62);
+  const [pendingPayments, setPendingPayments] = useState([]);
+  const [verifyingRef, setVerifyingRef] = useState(null);
 
   /* Fund form */
   const [fundAmt, setFundAmt] = useState("");
@@ -113,9 +115,6 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
   const [svcProvider, setSvcProvider] = useState("aws");
   const [svcAmt, setSvcAmt] = useState("");
   const [svcRef, setSvcRef] = useState("");
-  const [cardNum, setCardNum] = useState("");
-  const [cardExp, setCardExp] = useState("");
-  const [cardCvv, setCardCvv] = useState("");
   const [payStep, setPayStep] = useState("form");
   const [payError, setPayError] = useState("");
 
@@ -136,13 +135,14 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
   };
 
   // Load wallet data and bank accounts on mount
-  const loadWalletData = async () => {
-    const [balRes, histRes, rateRes, userAcctsRes, banksRes] = await Promise.all([
+  const loadWalletData = useCallback(async () => {
+    const [balRes, histRes, rateRes, userAcctsRes, banksRes, payHistRes] = await Promise.all([
       wallet.get(),
       wallet.history(),
       exchangeRate.get(),
       bankAccounts.list(),
       bankAccounts.getBanks(),
+      payments.history(1),
     ]);
 
     if (rateRes.data?.success) {
@@ -158,6 +158,13 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
       setHistory(histRes.data.history);
     }
 
+    if (payHistRes.data?.history) {
+      const pendings = payHistRes.data.history.filter(
+        (p) => p.status === "pending" && p.purpose === "wallet_funding"
+      );
+      setPendingPayments(pendings);
+    }
+
     if (userAcctsRes.data?.accounts) {
       setUserAccounts(userAcctsRes.data.accounts);
       const defaultAcct = userAcctsRes.data.accounts.find((a) => a.is_default);
@@ -170,21 +177,48 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
     if (banksRes.data?.banks) {
       setAvailableBanks(banksRes.data.banks);
     }
+  }, [onBalanceChange]);
+
+  const handleVerifyPendingPayment = async (ref) => {
+    setVerifyingRef(ref);
+    const { data, error } = await payments.verify(ref);
+    setVerifyingRef(null);
+
+    if (error) {
+      showToast(error, "error");
+    } else if (data && !data.success && !data.alreadyProcessed) {
+      showToast(data.message || "Payment is not marked as successful on Paystack.", "error");
+    } else {
+      showToast("Payment verified! Your wallet has been credited.", "success");
+      sseEmitter.emit("wallet_update", data);
+      loadWalletData();
+    }
   };
 
   useEffect(() => {
-    loadWalletData();
+    let isSubscribed = true;
+    (async () => {
+      await loadWalletData();
+    })();
     const unsub = sseEmitter.on("wallet_update", () => {
-      loadWalletData();
+      if (isSubscribed) {
+        loadWalletData();
+      }
     });
-    return unsub;
-  }, []);
+    return () => {
+      isSubscribed = false;
+      if (typeof unsub === "function") {
+        unsub();
+      }
+    };
+  }, [loadWalletData]);
 
 
   // Handle Paystack Wallet Deposit
   const handleDeposit = async () => {
-    const amt = parseFloat(fundAmt);
-    if (!amt || amt <= 0) return showToast("Please enter a valid amount in NGN.", "error");
+    const cleanAmt = String(fundAmt || "").replace(/,/g, "").trim();
+    const amt = parseFloat(cleanAmt);
+    if (!amt || isNaN(amt) || amt <= 0) return showToast("Please enter a valid amount in NGN.", "error");
     if (amt < 100) return showToast("Minimum funding amount is ₦100.", "error");
 
     setLd(true);
@@ -265,7 +299,7 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
     if (!selectedAccountId) return showToast("Please select or add a bank account first.", "error");
 
     setLd(true);
-    const { data, error, unverified } = await withdrawals.request(amt, selectedAccountId);
+    const { error } = await withdrawals.request(amt, selectedAccountId);
     setLd(false);
 
     if (error) {
@@ -286,7 +320,7 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
       return showToast("Please enter a valid amount.", "error");
     if (!txTo) return showToast("Recipient email is required.", "error");
     setLd(true);
-    const { data, error } = await wallet.transfer(amt, txTo, txNote);
+    const { error } = await wallet.transfer(amt, txTo, txNote);
     setLd(false);
     if (error) {
       showToast(error, "error");
@@ -315,7 +349,8 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
           style={{
             position: "fixed",
             top: 76,
-            right: 18,
+            left: "50%",
+            transform: "translateX(-50%)",
             zIndex: 9999,
             background: toast.type === "error" ? T.red : T.green,
             color: T.white,
@@ -328,7 +363,9 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
             display: "flex",
             alignItems: "center",
             gap: 8,
-            maxWidth: 340,
+            width: "calc(100% - 32px)",
+            maxWidth: 380,
+            boxSizing: "border-box",
           }}
         >
           <span className="msym" style={{ fontSize: 18 }}>
@@ -784,6 +821,75 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
             );
           })()}
 
+          {/* Pending Deposits Sync Alert Banner */}
+          {pendingPayments.length > 0 && (
+            <div
+              style={{
+                background: "#fffbeb",
+                border: "1.5px solid #fde68a",
+                borderRadius: 14,
+                padding: "16px 18px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 12,
+                boxShadow: "0 2px 8px rgba(217,119,6,0.08)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 240 }}>
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    background: "#fef3c7",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <span className="msym" style={{ fontSize: 22, color: "#d97706" }}>
+                    sync_problem
+                  </span>
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 13.5, color: "#92400e" }}>
+                    Pending Deposit Detected ({pendingPayments[0].reference})
+                  </div>
+                  <div style={{ fontSize: 12, color: "#b45309", marginTop: 2 }}>
+                    ${parseFloat(pendingPayments[0].amount).toFixed(2)} (₦{(Number(pendingPayments[0].amount_kobo) / 100).toLocaleString()}) &bull; If money was debited by Paystack, click to sync and credit your wallet.
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => handleVerifyPendingPayment(pendingPayments[0].reference)}
+                disabled={verifyingRef === pendingPayments[0].reference}
+                style={{
+                  background: "#d97706",
+                  color: T.white,
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "8px 16px",
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  transition: "all .15s",
+                  boxShadow: "0 2px 6px rgba(217,119,6,0.25)",
+                }}
+              >
+                <span className="msym" style={{ fontSize: 16 }}>
+                  refresh
+                </span>
+                {verifyingRef === pendingPayments[0].reference ? "Checking Paystack…" : "Sync / Credit Wallet"}
+              </button>
+            </div>
+          )}
+
           {/* Recent transactions */}
           <div
             style={{
@@ -837,10 +943,33 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
                 const amtStr = parseFloat(t.amount || 0).toLocaleString("en", {
                   minimumFractionDigits: 2,
                 });
-                const dateStr = new Date(t.created_at).toLocaleDateString(
-                  "en",
-                  { month: "short", day: "numeric", year: "numeric" },
-                );
+                let dateObj = new Date();
+                if (t.created_at) {
+                  let raw = String(t.created_at).trim();
+                  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(raw)) {
+                    raw = raw.replace(" ", "T") + "Z";
+                  } else if (
+                    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(raw) &&
+                    !raw.endsWith("Z") &&
+                    !/[+-]\d{2}:\d{2}$/.test(raw)
+                  ) {
+                    raw = raw + "Z";
+                  }
+                  const parsed = new Date(raw);
+                  if (!isNaN(parsed.getTime())) dateObj = parsed;
+                }
+                const dateStr = dateObj.toLocaleDateString("en-US", {
+                  timeZone: "Africa/Lagos",
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                });
+                const timeStr = dateObj.toLocaleTimeString("en-US", {
+                  timeZone: "Africa/Lagos",
+                  hour: "numeric",
+                  minute: "2-digit",
+                  hour12: true,
+                });
                 return (
                   <div
                     key={t.id}
@@ -905,9 +1034,15 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
                             fontSize: 11,
                             color: T.gray400,
                             marginTop: 2,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                            flexWrap: "wrap",
                           }}
                         >
-                          {t.reference} &bull; {dateStr}
+                          <span>{t.reference}</span>
+                          <span>&bull;</span>
+                          <span>{dateStr}, {timeStr}</span>
                         </div>
                       </div>
                     </div>
@@ -991,6 +1126,7 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
                 <input
                   style={{ ...fs, paddingLeft: 32 }}
                   type="number"
+                  inputMode="decimal"
                   min="0"
                   placeholder="0.00"
                   value={fundAmt}
@@ -1028,6 +1164,7 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
               {[5000, 10000, 25000, 50000].map((a) => (
                 <button
                   key={a}
+                  type="button"
                   onClick={() => setFundAmt(String(a))}
                   style={{
                     flex: 1,
@@ -1665,9 +1802,6 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
                   setPayStep("form");
                   setSvcAmt("");
                   setSvcRef("");
-                  setCardNum("");
-                  setCardExp("");
-                  setCardCvv("");
                 }}
               >
                 Make Another Payment

@@ -378,6 +378,35 @@ const AdminPanel = ({ onBack, onLogout }) => {
     });
   };
 
+  const handleDeleteUser = async (user) => {
+    const confirmMsg = `Are you sure you want to permanently delete user "${user.name || "User"}" (${user.email || "ID: " + user.id})?\n\nThis will completely delete all their transactions, escrow funds, KYC records, and associated data. This action cannot be undone.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    const { error } = await admin.deleteUser(user.id);
+    if (error) {
+      alert(error);
+    } else {
+      alert(`User "${user.name || user.email}" was deleted successfully.`);
+      loadUsers();
+      loadDashboard();
+      loadPlatformTransactions();
+    }
+  };
+
+  const handleDeleteTransaction = async (tx) => {
+    const confirmMsg = `Are you sure you want to permanently delete transaction #${tx.txn_code || tx.id} ("${tx.title || tx.category || "Untitled"}")?\n\nThis will permanently delete this escrow transaction, milestones, submissions, disputes, and related events. This action cannot be undone.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    const { error } = await admin.deleteTransaction(tx.id);
+    if (error) {
+      alert(error);
+    } else {
+      alert(`Transaction #${tx.txn_code || tx.id} deleted successfully.`);
+      loadPlatformTransactions();
+      loadDashboard();
+    }
+  };
+
   const handleMoveToReview = (disputeId) => {
     admin.reviewDispute(disputeId).then(({ error }) => {
       if (error) {
@@ -1331,6 +1360,7 @@ const AdminPanel = ({ onBack, onLogout }) => {
                         "Value",
                         "Status",
                         "Flagged",
+                        "Actions",
                       ].map((h) => (
                         <th
                           key={h}
@@ -1429,6 +1459,38 @@ const AdminPanel = ({ onBack, onLogout }) => {
                               —
                             </span>
                           )}
+                        </td>
+                        <td style={{ padding: "12px 14px" }}>
+                          <button
+                            onClick={() => handleDeleteTransaction(r)}
+                            title="Delete Transaction"
+                            style={{
+                              background: "#fee2e2",
+                              border: "1px solid #fca5a5",
+                              color: T.red,
+                              borderRadius: 6,
+                              padding: "5px 10px",
+                              fontSize: 11.5,
+                              fontWeight: 700,
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              transition: "all .15s",
+                              whiteSpace: "nowrap",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = "#fecaca";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = "#fee2e2";
+                            }}
+                          >
+                            <span className="msym" style={{ fontSize: 14 }}>
+                              delete
+                            </span>
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -2074,23 +2136,57 @@ const AdminPanel = ({ onBack, onLogout }) => {
 
                           {/* Actions Column */}
                           <td style={{ padding: "12px 14px" }}>
-                            <Btn
-                              variant="outline"
-                              style={{
-                                fontSize: 11.5,
-                                padding: "6px 12px",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 5,
-                                whiteSpace: "nowrap",
-                              }}
-                              onClick={() => setSubscribingUser(u)}
-                            >
-                              <span className="msym" style={{ fontSize: 15, color: isSubActive ? "#d97706" : T.accent }}>
-                                card_membership
-                              </span>
-                              {isSubActive ? "Manage Plan" : "Subscribe"}
-                            </Btn>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap" }}>
+                              <Btn
+                                variant="outline"
+                                style={{
+                                  fontSize: 11.5,
+                                  padding: "6px 12px",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 5,
+                                  whiteSpace: "nowrap",
+                                }}
+                                onClick={() => setSubscribingUser(u)}
+                              >
+                                <span className="msym" style={{ fontSize: 15, color: isSubActive ? "#d97706" : T.accent }}>
+                                  card_membership
+                                </span>
+                                {isSubActive ? "Manage Plan" : "Subscribe"}
+                              </Btn>
+                              {u.role !== "admin" && (
+                                <button
+                                  onClick={() => handleDeleteUser(u)}
+                                  title="Delete User"
+                                  style={{
+                                    background: "#fee2e2",
+                                    border: "1px solid #fca5a5",
+                                    color: T.red,
+                                    borderRadius: 8,
+                                    padding: "6px 10px",
+                                    fontSize: 11.5,
+                                    fontWeight: 700,
+                                    cursor: "pointer",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    transition: "all .15s",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = "#fecaca";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = "#fee2e2";
+                                  }}
+                                >
+                                  <span className="msym" style={{ fontSize: 14 }}>
+                                    delete
+                                  </span>
+                                  Delete
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );

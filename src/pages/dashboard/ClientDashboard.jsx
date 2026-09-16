@@ -79,6 +79,7 @@ export default function ClientDashboard({
           ...t,
           id: t.txn_code || `TXN-${t.id}`,
           realId: t.id,
+          cat: t.category || "software",
           type: CATS.find((c) => c.id === t.category)?.label || "Software Dev",
           other: user.id === t.buyer_id ? t.seller_name : t.buyer_name,
           date: new Date(t.created_at).toLocaleDateString("en", {
@@ -203,7 +204,9 @@ export default function ClientDashboard({
       scope_json: finalScope || null,
       ai_estimated_timeline: finalScope?.timeline || null,
       agreed_duration: nf.agreed_duration || null,
-      agreed_deadline: nf.agreed_deadline ? new Date(nf.agreed_deadline).toISOString() : null,
+      agreed_deadline: nf.agreed_deadline
+        ? new Date(nf.agreed_deadline).toISOString()
+        : null,
       revision_policy: finalScope?.revisions || null,
     });
     setSubmitting(false);
@@ -261,7 +264,10 @@ export default function ClientDashboard({
       startDate: t.date,
       dueDate: (() => {
         if (t.agreed_deadline) {
-          const parts = String(t.agreed_deadline).split("T")[0].split(" ")[0].split("-");
+          const parts = String(t.agreed_deadline)
+            .split("T")[0]
+            .split(" ")[0]
+            .split("-");
           if (parts.length === 3) {
             const [y, m, d] = parts.map(Number);
             return new Date(y, m - 1, d).toLocaleDateString("en-US", {
@@ -351,10 +357,10 @@ export default function ClientDashboard({
             onClick={() => switchTab("overview")}
           >
             <img
-              src="/logo4.png"
+              src="/logo2.png"
               alt="Lumbrr"
               style={{
-                height: 28,
+                height: 36,
                 width: "auto",
                 objectFit: "contain",
                 display: "block",
@@ -570,19 +576,6 @@ export default function ClientDashboard({
                 display: "block",
               }}
             />
-            <span
-              style={{
-                fontSize: 11,
-                background: "#e8f4fd",
-                color: "#1a56a0",
-                borderRadius: 6,
-                padding: "2px 8px",
-                fontWeight: 600,
-                flexShrink: 0,
-              }}
-            >
-              Client
-            </span>
           </div>
           <div
             className="dash-tabs"
@@ -856,84 +849,97 @@ export default function ClientDashboard({
                   View all →
                 </Btn>
               </div>
-              {txs.slice(0, 4).map((tx) => (
+              {txs.length === 0 ? (
                 <div
-                  key={tx.id}
-                  onClick={() => {
-                    setDetail(tx);
-                    switchTab("transactions");
-                  }}
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "12px 0",
-                    borderBottom: "1px solid #f0f0f0",
-                    cursor: "pointer",
+                    textAlign: "center",
+                    padding: "24px 0",
+                    color: "#75777f",
+                    fontSize: 13,
                   }}
                 >
+                  No recent transactions.
+                </div>
+              ) : (
+                txs.slice(0, 4).map((tx) => (
                   <div
-                    style={{ display: "flex", alignItems: "center", gap: 12 }}
+                    key={tx.id}
+                    onClick={() => {
+                      setDetail(tx);
+                      switchTab("transactions");
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "12px 0",
+                      borderBottom: "1px solid #f0f0f0",
+                      cursor: "pointer",
+                    }}
                   >
                     <div
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 10,
-                        background:
-                          CATS.find((c) => c.id === tx.cat)?.color + "20",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
+                      style={{ display: "flex", alignItems: "center", gap: 12 }}
                     >
-                      <span
-                        className="msym"
-                        style={{
-                          fontSize: 18,
-                          color: CATS.find((c) => c.id === tx.cat)?.color,
-                        }}
-                      >
-                        {tx.cat === "software"
-                          ? "code"
-                          : tx.cat === "mobile"
-                            ? "smartphone"
-                            : tx.cat === "web"
-                              ? "language"
-                              : tx.cat === "uiux"
-                                ? "palette"
-                                : "cloud"}
-                      </span>
-                    </div>
-                    <div>
                       <div
                         style={{
-                          fontWeight: 600,
+                          width: 36,
+                          height: 36,
+                          borderRadius: 10,
+                          background:
+                            CATS.find((c) => c.id === tx.cat)?.color + "20",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <span
+                          className="msym"
+                          style={{
+                            fontSize: 18,
+                            color: CATS.find((c) => c.id === tx.cat)?.color,
+                          }}
+                        >
+                          {tx.cat === "software"
+                            ? "code"
+                            : tx.cat === "mobile"
+                              ? "smartphone"
+                              : tx.cat === "web"
+                                ? "language"
+                                : tx.cat === "uiux"
+                                  ? "palette"
+                                  : "cloud"}
+                        </span>
+                      </div>
+                      <div>
+                        <div
+                          style={{
+                            fontWeight: 600,
+                            fontSize: 14,
+                            color: "#001637",
+                          }}
+                        >
+                          {tx.title}
+                        </div>
+                        <div style={{ fontSize: 12, color: "#75777f" }}>
+                          {tx.other} · {tx.date}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div
+                        style={{
+                          fontWeight: 700,
                           fontSize: 14,
                           color: "#001637",
                         }}
                       >
-                        {tx.title}
+                        ${tx.amount.toLocaleString()}
                       </div>
-                      <div style={{ fontSize: 12, color: "#75777f" }}>
-                        {tx.other} · {tx.date}
-                      </div>
+                      <SB status={tx.status} />
                     </div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div
-                      style={{
-                        fontWeight: 700,
-                        fontSize: 14,
-                        color: "#001637",
-                      }}
-                    >
-                      ${tx.amount.toLocaleString()}
-                    </div>
-                    <SB status={tx.status} />
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         )}
@@ -2007,8 +2013,14 @@ export default function ClientDashboard({
                         "Deadline",
                         nf.agreed_deadline
                           ? (() => {
-                              const parts = String(nf.agreed_deadline).split("-").map(Number);
-                              return new Date(parts[0], parts[1] - 1, parts[2]).toLocaleDateString("en-US", {
+                              const parts = String(nf.agreed_deadline)
+                                .split("-")
+                                .map(Number);
+                              return new Date(
+                                parts[0],
+                                parts[1] - 1,
+                                parts[2],
+                              ).toLocaleDateString("en-US", {
                                 month: "short",
                                 day: "numeric",
                                 year: "numeric",

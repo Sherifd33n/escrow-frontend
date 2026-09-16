@@ -11,11 +11,46 @@ export const T = {
 };
 
 export const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Pattaya&family=Poppins:wght@300;400;500;600;700;800;900&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Pattaya&family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
+  @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+  @font-face {
+    font-family: 'Material Symbols Outlined';
+    font-style: normal;
+    font-weight: 100 700;
+    font-display: block;
+    src: url(https://fonts.gstatic.com/s/materialsymbolsoutlined/v372/kJF1BvYX7BgnkSrUwT8OhrdQw4oELdPIeeII9v6oDMzByHX9rA6RzaxHMPdY43zj-jCxv3fzvRNU22ZXGJpEpjC_1v-p_4MrImHCIJIZrDCvHOejbdhzrA.woff2) format('woff2');
+  }
+  @font-face {
+    font-family: 'Material Icons';
+    font-style: normal;
+    font-weight: 400;
+    font-display: block;
+    src: url(https://fonts.gstatic.com/s/materialicons/v145/flUhRq6tzZclQEJ-Vdg-IuiaDsNcIhQ8tQ.woff2) format('woff2');
+  }
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
   html{scroll-behavior:smooth;}
   body{font-family:'Inter',sans-serif;background:#fbf9fc;color:#1b1b1e;}
-  .msym{font-family:'Material Symbols Outlined';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;display:inline-block;line-height:1;text-transform:none;letter-spacing:normal;white-space:nowrap;}
+  .msym, .material-symbols-outlined, .material-icons, [class*="msym"] {
+    font-family: 'Material Symbols Outlined', 'Material Icons', sans-serif !important;
+    font-weight: normal !important;
+    font-style: normal !important;
+    font-size: 24px;
+    line-height: 1 !important;
+    letter-spacing: normal !important;
+    text-transform: none !important;
+    display: inline-block !important;
+    white-space: nowrap !important;
+    word-wrap: normal !important;
+    direction: ltr !important;
+    -webkit-font-feature-settings: 'liga' 1 !important;
+    font-feature-settings: 'liga' 1 !important;
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    text-rendering: optimizeLegibility !important;
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    user-select: none;
+  }
   input,select,textarea,button{font-family:'Inter',sans-serif;}
   ::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:#f1f4f9;}::-webkit-scrollbar-thumb{background:#a0aec0;border-radius:3px;}
   @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}

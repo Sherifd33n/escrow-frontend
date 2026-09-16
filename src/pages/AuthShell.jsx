@@ -5,10 +5,8 @@ const AuthShell=({children,navigate})=>(
     <div className="auth-bg-blob" style={{width:320,height:320,background:"rgba(130,249,190,.18)",bottom:"-10%",left:"-6%"}}/>
     {/* Header */}
     <header style={{background:"#fff",borderBottom:"1px solid #e4e2e5",height:64,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 1.5rem",position:"sticky",top:0,zIndex:10,boxShadow:"0 1px 0 #e4e2e5"}}>
-      <div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>navigate("home")}>
-        <div style={{ background: "#162510", borderRadius: 8, padding: "4px 10px", display: "inline-flex", alignItems: "center" }}>
-          <img src="/logo.jpeg" alt="Lumbrr" style={{ height: 32, width: "auto", objectFit: "contain", mixBlendMode: "screen", display: "block" }} />
-        </div>
+      <div style={{display:"flex",alignItems:"center",cursor:"pointer"}} onClick={()=>navigate("home")}>
+        <img src="/logo2.png" alt="Lumbrr" style={{ height: 40, width: "auto", objectFit: "contain", display: "block" }} />
       </div>
       <button
         onClick={()=>navigate("home")}

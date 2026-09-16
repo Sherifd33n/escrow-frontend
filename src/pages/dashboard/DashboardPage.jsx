@@ -223,27 +223,16 @@ const Dashboard = ({ user, onLogout }) => {
             }}
             onClick={() => switchTab("transactions")}
           >
-            <div
+            <img
+              src="/logo2.png"
+              alt="Lumbrr"
               style={{
-                background: "",
-                borderRadius: 8,
-                padding: "3px 8px",
-                display: "inline-flex",
-                alignItems: "center",
+                height: 40,
+                width: "auto",
+                objectFit: "contain",
+                display: "block",
               }}
-            >
-              <img
-                src="/logo.jpeg"
-                alt="Lumbrr"
-                style={{
-                  height: 50,
-                  width: "auto",
-                  objectFit: "contain",
-                  mixBlendMode: "screen",
-                  display: "block",
-                }}
-              />
-            </div>
+            />
           </div>
           <button
             onClick={() => setDrawer(false)}
@@ -464,27 +453,16 @@ const Dashboard = ({ user, onLogout }) => {
             }}
             onClick={() => switchTab("transactions")}
           >
-            <div
+            <img
+              src="/logo2.png"
+              alt="Lumbrr"
               style={{
-                background: "#162510",
-                borderRadius: 8,
-                padding: "2px 8px",
-                display: "inline-flex",
-                alignItems: "center",
+                height: 44,
+                width: "auto",
+                objectFit: "contain",
+                display: "block",
               }}
-            >
-              <img
-                src="/logo.jpeg"
-                alt="Lumbrr"
-                style={{
-                  height: 66,
-                  width: "auto",
-                  objectFit: "contain",
-                  mixBlendMode: "screen",
-                  display: "block",
-                }}
-              />
-            </div>
+            />
           </div>
           <div
             className="dash-tabs"

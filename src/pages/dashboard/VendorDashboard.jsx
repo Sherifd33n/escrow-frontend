@@ -71,6 +71,7 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
           ...t,
           id: t.txn_code || `TXN-${t.id}`,
           realId: t.id,
+          cat: t.category || "software",
           type: CATS.find((c) => c.id === t.category)?.label || "Software Dev",
           other: user.id === t.buyer_id ? t.seller_name : t.buyer_name,
           date: new Date(t.created_at).toLocaleDateString("en", {
@@ -247,10 +248,10 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
             onClick={() => switchTab("overview")}
           >
             <img
-              src="/logo4.png"
+              src="/logo2.png"
               alt="Lumbrr"
               style={{
-                height: 28,
+                height: 36,
                 width: "auto",
                 objectFit: "contain",
                 display: "block",
@@ -700,10 +701,25 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
                   View all →
                 </Btn>
               </div>
-              {jobs
-                .filter((j) => !["completed", "disputed"].includes(j.status))
-                .slice(0, 4)
-                .map((job) => (
+              {(() => {
+                const activeJobs = jobs.filter(
+                  (j) => !["completed", "disputed"].includes(j.status),
+                );
+                if (activeJobs.length === 0) {
+                  return (
+                    <div
+                      style={{
+                        textAlign: "center",
+                        padding: "24px 0",
+                        color: "#75777f",
+                        fontSize: 13,
+                      }}
+                    >
+                      No active jobs.
+                    </div>
+                  );
+                }
+                return activeJobs.slice(0, 4).map((job) => (
                   <div
                     key={job.id}
                     style={{
@@ -743,7 +759,8 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
                       <SB status={job.status} />
                     </div>
                   </div>
-                ))}
+                ));
+              })()}
             </div>
           </div>
         )}
@@ -765,7 +782,20 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
                 Click a job to submit a milestone or request payment release.
               </p>
             </div>
-            {jobs.map((job) => (
+            {jobs.length === 0 ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: 48,
+                  color: "#75777f",
+                  background: "#fff",
+                  borderRadius: 14,
+                }}
+              >
+                No active jobs yet.
+              </div>
+            ) : (
+              jobs.map((job) => (
               <div
                 key={job.id}
                 style={{
@@ -1186,7 +1216,7 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
                   </div>
                 )}
               </div>
-            ))}
+            )))}
           </div>
         )}
 

@@ -7,9 +7,26 @@
  * On failure: data = null, error = string message
  */
 
-const BASE = (
-  import.meta.env.VITE_API_URL || "http://localhost:4000/api"
-).replace(/\/+$/, "");
+function getApiBase() {
+  const envUrl = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
+  if (typeof window !== "undefined" && window.location && window.location.hostname) {
+    const currentHost = window.location.hostname;
+    if (currentHost !== "localhost" && currentHost !== "127.0.0.1") {
+      try {
+        const parsed = new URL(envUrl);
+        if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
+          parsed.hostname = currentHost;
+          return parsed.toString().replace(/\/+$/, "");
+        }
+      } catch {
+        // fallback
+      }
+    }
+  }
+  return envUrl.replace(/\/+$/, "");
+}
+
+const BASE = getApiBase();
 
 function formatApiErrorMessage(json, fallback) {
   if (json?.error && typeof json.error === "string") return json.error;
@@ -310,13 +327,23 @@ export const admin = {
 
   cancelUserSubscription: (userId, data = {}) =>
     post(`/admin/users/${userId}/cancel-subscription`, data),
+
+  deleteUser: (userId) => del(`/admin/users/${userId}`),
+
+  deleteTransaction: (transactionId) => del(`/admin/transactions/${transactionId}`),
 };
 
 // ─── WALLET ──────────────────────────────────────────────────────
 export const wallet = {
   get: () => get("/wallet"),
 
-  deposit: (amount) => post("/payments/initialize", { amount }),
+  deposit: (amount, callbackUrl) =>
+    post("/payments/initialize", {
+      amount,
+      callbackUrl:
+        callbackUrl ||
+        (typeof window !== "undefined" ? window.location.origin : undefined),
+    }),
 
   withdraw: (amount, bankAccountId) =>
     post("/withdrawals", { amount, bankAccountId }),
@@ -329,7 +356,13 @@ export const wallet = {
 
 // ─── PAYMENTS (Paystack) ─────────────────────────────────────────
 export const payments = {
-  initialize: (amount) => post("/payments/initialize", { amount }),
+  initialize: (amount, callbackUrl) =>
+    post("/payments/initialize", {
+      amount,
+      callbackUrl:
+        callbackUrl ||
+        (typeof window !== "undefined" ? window.location.origin : undefined),
+    }),
 
   verify: (reference) => get(`/payments/verify/${encodeURIComponent(reference)}`),
 

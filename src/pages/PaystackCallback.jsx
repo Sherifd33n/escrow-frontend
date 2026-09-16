@@ -106,7 +106,7 @@ export default function PaystackCallback({ navigate }) {
     <div
       style={{
         minHeight: "100vh",
-        background: `radial-gradient(100% 50% at 50% 0%, #001637 0%, ${T.bg} 100%)`,
+        background: "#fbf9fc",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -116,10 +116,23 @@ export default function PaystackCallback({ navigate }) {
     >
       {/* Brand Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 28 }}>
-        <div style={{ background: "#162510", borderRadius: 8, padding: "4px 10px", display: "inline-flex", alignItems: "center" }}>
-          <img src="/logo.jpeg" alt="Lumbrr" style={{ height: 32, width: "auto", objectFit: "contain", mixBlendMode: "screen", display: "block" }} />
-        </div>
-        <span style={{ fontSize: 11, fontWeight: 700, color: T.green, background: "rgba(16,185,129,0.15)", padding: "3px 8px", borderRadius: 12 }}>PAYSTACK SECURE</span>
+        <img
+          src="/logo2.png"
+          alt="Lumbrr"
+          style={{ height: 38, width: "auto", objectFit: "contain", display: "block" }}
+        />
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: "#006c47",
+            background: "rgba(0,108,71,0.12)",
+            padding: "4px 10px",
+            borderRadius: 12,
+          }}
+        >
+          PAYSTACK SECURE
+        </span>
       </div>
 
       <div
