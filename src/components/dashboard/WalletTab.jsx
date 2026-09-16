@@ -3,6 +3,8 @@ import { T, fs } from "../../tokens";
 import { Btn, Spin } from "../../components/ui";
 import { wallet, exchangeRate, bankAccounts, withdrawals, payments } from "../../utils/api";
 import { sseEmitter } from "../../utils/useSSE";
+import TransactionReceiptModal from "./TransactionReceiptModal";
+import AccountStatementModal from "./AccountStatementModal";
 
 
 const InputField = ({ label, children, req }) => (
@@ -87,6 +89,9 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
   const [history, setHistory] = useState([]);
   const [usdToNgn, setUsdToNgn] = useState(1548.62);
   const [syncing, setSyncing] = useState(false);
+  const [historyLimit, setHistoryLimit] = useState(5);
+  const [selectedReceiptTx, setSelectedReceiptTx] = useState(null);
+  const [showStatementModal, setShowStatementModal] = useState(false);
 
   /* Fund form */
   const [fundAmt, setFundAmt] = useState("");
@@ -117,8 +122,6 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
   const [payStep, setPayStep] = useState("form");
   const [payError, setPayError] = useState("");
 
-  /* Truncation / pagination for activity feed */
-  const [historyLimit, setHistoryLimit] = useState(5);
 
   const SVCS = [
     { id: "aws", label: "Amazon Web Services", icon: "cloud", color: "#FF9900" },
@@ -860,6 +863,27 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                 <button
+                  onClick={() => setShowStatementModal(true)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: T.primary,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: 0,
+                  }}
+                  title="Generate and download account statements"
+                >
+                  <span className="msym" style={{ fontSize: 16 }}>
+                    description
+                  </span>
+                  Statement
+                </button>
+                <button
                   onClick={handleManualSync}
                   disabled={syncing}
                   style={{
@@ -944,6 +968,8 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
                   return (
                     <div
                       key={t.id}
+                      onClick={() => setSelectedReceiptTx(t)}
+                      title="Click to view and print official receipt"
                       style={{
                         padding: "12px 16px",
                         display: "flex",
@@ -954,6 +980,14 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
                             ? `1px solid ${T.gray100}`
                             : "none",
                         gap: 12,
+                        cursor: "pointer",
+                        transition: "background 0.15s",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "#fbfcfd";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "transparent";
                       }}
                     >
                       <div
@@ -2130,6 +2164,23 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
             </>
           )}
         </div>
+      )}
+
+      {/* Transaction Receipt Modal */}
+      {selectedReceiptTx && (
+        <TransactionReceiptModal
+          tx={selectedReceiptTx}
+          user={user}
+          onClose={() => setSelectedReceiptTx(null)}
+        />
+      )}
+
+      {/* Account Statement Generator Modal */}
+      {showStatementModal && (
+        <AccountStatementModal
+          user={user}
+          onClose={() => setShowStatementModal(false)}
+        />
       )}
     </div>
   );

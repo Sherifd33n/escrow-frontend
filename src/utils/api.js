@@ -352,6 +352,11 @@ export const wallet = {
     post("/wallet/transfer", { amount, recipientEmail, note }),
 
   history: (page = 1) => get(`/wallet/history?page=${page}`),
+
+  getStatement: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return get(`/wallet/statement${qs ? "?" + qs : ""}`);
+  },
 };
 
 // ─── PAYMENTS (Paystack) ─────────────────────────────────────────
