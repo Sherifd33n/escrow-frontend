@@ -366,8 +366,11 @@ export const payments = {
 
   verify: (reference) => get(`/payments/verify/${encodeURIComponent(reference)}`),
 
+  syncPending: () => post("/payments/sync-pending", {}),
+
   history: (page = 1) => get(`/payments/history?page=${page}`),
 };
+
 
 // ─── BANK ACCOUNTS ───────────────────────────────────────────────
 export const bankAccounts = {

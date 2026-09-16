@@ -86,8 +86,7 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
   const [toast, setToast] = useState(null);
   const [history, setHistory] = useState([]);
   const [usdToNgn, setUsdToNgn] = useState(1548.62);
-  const [pendingPayments, setPendingPayments] = useState([]);
-  const [verifyingRef, setVerifyingRef] = useState(null);
+  const [syncing, setSyncing] = useState(false);
 
   /* Fund form */
   const [fundAmt, setFundAmt] = useState("");
@@ -135,7 +134,7 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
   };
 
   // Load wallet data and bank accounts on mount
-  const loadWalletData = useCallback(async () => {
+  const loadWalletData = useCallback(async (silentSync = true) => {
     const [balRes, histRes, rateRes, userAcctsRes, banksRes, payHistRes] = await Promise.all([
       wallet.get(),
       wallet.history(),
@@ -158,13 +157,6 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
       setHistory(histRes.data.history);
     }
 
-    if (payHistRes.data?.history) {
-      const pendings = payHistRes.data.history.filter(
-        (p) => p.status === "pending" && p.purpose === "wallet_funding"
-      );
-      setPendingPayments(pendings);
-    }
-
     if (userAcctsRes.data?.accounts) {
       setUserAccounts(userAcctsRes.data.accounts);
       const defaultAcct = userAcctsRes.data.accounts.find((a) => a.is_default);
@@ -177,23 +169,45 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
     if (banksRes.data?.banks) {
       setAvailableBanks(banksRes.data.banks);
     }
+
+    // Auto-reconcile any pending payments silently in the background
+    if (payHistRes.data?.history) {
+      const hasPendings = payHistRes.data.history.some(
+        (p) => p.status === "pending" && p.purpose === "wallet_funding"
+      );
+      if (hasPendings && silentSync) {
+        payments.syncPending().then(({ data }) => {
+          if (data?.newlyCreditedCount > 0) {
+            showToast("Recent Paystack deposit was verified and credited to your wallet!", "success");
+            sseEmitter.emit("wallet_update", data);
+            loadWalletData(false);
+          }
+        }).catch(() => {});
+      }
+    }
   }, [onBalanceChange]);
 
-  const handleVerifyPendingPayment = async (ref) => {
-    setVerifyingRef(ref);
-    const { data, error } = await payments.verify(ref);
-    setVerifyingRef(null);
-
-    if (error) {
-      showToast(error, "error");
-    } else if (data && !data.success && !data.alreadyProcessed) {
-      showToast(data.message || "Payment is not marked as successful on Paystack.", "error");
-    } else {
-      showToast("Payment verified! Your wallet has been credited.", "success");
-      sseEmitter.emit("wallet_update", data);
-      loadWalletData();
+  const handleManualSync = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await payments.syncPending();
+      if (error) {
+        showToast(error, "error");
+      } else if (data?.newlyCreditedCount > 0) {
+        showToast("Deposit verified! Your wallet has been credited.", "success");
+        sseEmitter.emit("wallet_update", data);
+        await loadWalletData(false);
+      } else {
+        showToast("All deposits are already synced and up to date.", "info");
+        await loadWalletData(false);
+      }
+    } catch (err) {
+      showToast("Failed to sync deposits.", "error");
+    } finally {
+      setSyncing(false);
     }
   };
+
 
   useEffect(() => {
     let isSubscribed = true;
@@ -821,75 +835,6 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
             );
           })()}
 
-          {/* Pending Deposits Sync Alert Banner */}
-          {pendingPayments.length > 0 && (
-            <div
-              style={{
-                background: "#fffbeb",
-                border: "1.5px solid #fde68a",
-                borderRadius: 14,
-                padding: "16px 18px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                flexWrap: "wrap",
-                gap: 12,
-                boxShadow: "0 2px 8px rgba(217,119,6,0.08)",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 240 }}>
-                <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 10,
-                    background: "#fef3c7",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <span className="msym" style={{ fontSize: 22, color: "#d97706" }}>
-                    sync_problem
-                  </span>
-                </div>
-                <div>
-                  <div style={{ fontWeight: 800, fontSize: 13.5, color: "#92400e" }}>
-                    Pending Deposit Detected ({pendingPayments[0].reference})
-                  </div>
-                  <div style={{ fontSize: 12, color: "#b45309", marginTop: 2 }}>
-                    ${parseFloat(pendingPayments[0].amount).toFixed(2)} (₦{(Number(pendingPayments[0].amount_kobo) / 100).toLocaleString()}) &bull; If money was debited by Paystack, click to sync and credit your wallet.
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={() => handleVerifyPendingPayment(pendingPayments[0].reference)}
-                disabled={verifyingRef === pendingPayments[0].reference}
-                style={{
-                  background: "#d97706",
-                  color: T.white,
-                  border: "none",
-                  borderRadius: 8,
-                  padding: "8px 16px",
-                  fontSize: 12.5,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  transition: "all .15s",
-                  boxShadow: "0 2px 6px rgba(217,119,6,0.25)",
-                }}
-              >
-                <span className="msym" style={{ fontSize: 16 }}>
-                  refresh
-                </span>
-                {verifyingRef === pendingPayments[0].reference ? "Checking Paystack…" : "Sync / Credit Wallet"}
-              </button>
-            </div>
-          )}
-
           {/* Recent transactions */}
           <div
             style={{
@@ -911,16 +856,50 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
               <div style={{ fontWeight: 700, fontSize: 14, color: T.primary }}>
                 Recent Wallet Activity
               </div>
-              <span
-                style={{
-                  fontSize: 12,
-                  color: T.accent,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                View all
-              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <button
+                  onClick={handleManualSync}
+                  disabled={syncing}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: T.accent,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: syncing ? "default" : "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: 0,
+                    opacity: syncing ? 0.6 : 1,
+                  }}
+                  title="Check and sync recent Paystack deposits"
+                >
+                  <span
+                    className="msym"
+                    style={{
+                      fontSize: 15,
+                      display: "inline-block",
+                      transform: syncing ? "rotate(360deg)" : "none",
+                      transition: syncing ? "transform 0.8s linear" : "none",
+                    }}
+                  >
+                    sync
+                  </span>
+                  {syncing ? "Syncing…" : "Sync Deposits"}
+                </button>
+                <span
+                  onClick={() => setSection("history")}
+                  style={{
+                    fontSize: 12,
+                    color: T.gray500,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  View all
+                </span>
+              </div>
             </div>
             {history.length === 0 ? (
               <div
