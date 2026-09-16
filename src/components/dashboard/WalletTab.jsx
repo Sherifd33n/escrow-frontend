@@ -180,7 +180,6 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
           if (data?.newlyCreditedCount > 0) {
             showToast("Recent Paystack deposit was verified and credited to your wallet!", "success");
             sseEmitter.emit("wallet_update", data);
-            loadWalletData(false);
           }
         }).catch(() => {});
       }
@@ -201,7 +200,7 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
         showToast("All deposits are already synced and up to date.", "info");
         await loadWalletData(false);
       }
-    } catch (err) {
+    } catch {
       showToast("Failed to sync deposits.", "error");
     } finally {
       setSyncing(false);
