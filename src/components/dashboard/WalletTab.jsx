@@ -117,6 +117,9 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
   const [payStep, setPayStep] = useState("form");
   const [payError, setPayError] = useState("");
 
+  /* Truncation / pagination for activity feed */
+  const [historyLimit, setHistoryLimit] = useState(5);
+
   const SVCS = [
     { id: "aws", label: "Amazon Web Services", icon: "cloud", color: "#FF9900" },
     { id: "gcp", label: "Google Cloud", icon: "cloud_sync", color: "#4285F4" },
@@ -887,17 +890,6 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
                   </span>
                   {syncing ? "Syncing…" : "Sync Deposits"}
                 </button>
-                <span
-                  onClick={() => setSection("history")}
-                  style={{
-                    fontSize: 12,
-                    color: T.gray500,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  View all
-                </span>
               </div>
             </div>
             {history.length === 0 ? (
@@ -912,131 +904,195 @@ const WalletTab = ({ user, balance, onBalanceChange, activeTxs = [] }) => {
                 No recent transactions
               </div>
             ) : (
-              history.map((t, i) => {
-                const isCredit =
-                  t.type === "deposit" ||
-                  t.type === "escrow_release" ||
-                  t.type === "escrow_refund" ||
-                  t.type === "transfer_in";
-                const amtStr = parseFloat(t.amount || 0).toLocaleString("en", {
-                  minimumFractionDigits: 2,
-                });
-                let dateObj = new Date();
-                if (t.created_at) {
-                  let raw = String(t.created_at).trim();
-                  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(raw)) {
-                    raw = raw.replace(" ", "T") + "Z";
-                  } else if (
-                    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(raw) &&
-                    !raw.endsWith("Z") &&
-                    !/[+-]\d{2}:\d{2}$/.test(raw)
-                  ) {
-                    raw = raw + "Z";
+              <>
+                {history.slice(0, historyLimit).map((t, i) => {
+                  const isCredit =
+                    t.type === "deposit" ||
+                    t.type === "escrow_release" ||
+                    t.type === "escrow_refund" ||
+                    t.type === "transfer_in";
+                  const amtStr = parseFloat(t.amount || 0).toLocaleString("en", {
+                    minimumFractionDigits: 2,
+                  });
+                  let dateObj = new Date();
+                  if (t.created_at) {
+                    let raw = String(t.created_at).trim();
+                    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(raw)) {
+                      raw = raw.replace(" ", "T") + "Z";
+                    } else if (
+                      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(raw) &&
+                      !raw.endsWith("Z") &&
+                      !/[+-]\d{2}:\d{2}$/.test(raw)
+                    ) {
+                      raw = raw + "Z";
+                    }
+                    const parsed = new Date(raw);
+                    if (!isNaN(parsed.getTime())) dateObj = parsed;
                   }
-                  const parsed = new Date(raw);
-                  if (!isNaN(parsed.getTime())) dateObj = parsed;
-                }
-                const dateStr = dateObj.toLocaleDateString("en-US", {
-                  timeZone: "Africa/Lagos",
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                });
-                const timeStr = dateObj.toLocaleTimeString("en-US", {
-                  timeZone: "Africa/Lagos",
-                  hour: "numeric",
-                  minute: "2-digit",
-                  hour12: true,
-                });
-                return (
-                  <div
-                    key={t.id}
-                    style={{
-                      padding: "12px 16px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      borderBottom:
-                        i < history.length - 1
-                          ? `1px solid ${T.gray100}`
-                          : "none",
-                      gap: 12,
-                    }}
-                  >
+                  const dateStr = dateObj.toLocaleDateString("en-US", {
+                    timeZone: "Africa/Lagos",
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  });
+                  const timeStr = dateObj.toLocaleTimeString("en-US", {
+                    timeZone: "Africa/Lagos",
+                    hour: "numeric",
+                    minute: "2-digit",
+                    hour12: true,
+                  });
+                  return (
                     <div
+                      key={t.id}
                       style={{
+                        padding: "12px 16px",
                         display: "flex",
                         alignItems: "center",
+                        justifyContent: "space-between",
+                        borderBottom:
+                          i < Math.min(history.length, historyLimit) - 1
+                            ? `1px solid ${T.gray100}`
+                            : "none",
                         gap: 12,
-                        flex: 1,
-                        minWidth: 0,
                       }}
                     >
                       <div
                         style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: 10,
-                          background: isCredit ? "#f0fdf4" : "#fef2f2",
                           display: "flex",
                           alignItems: "center",
-                          justifyContent: "center",
+                          gap: 12,
+                          flex: 1,
+                          minWidth: 0,
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 10,
+                            background: isCredit ? "#f0fdf4" : "#fef2f2",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <span
+                            className="msym"
+                            style={{
+                              fontSize: 18,
+                              color: isCredit ? "#10b981" : T.red,
+                            }}
+                          >
+                            {isCredit ? "arrow_downward" : "arrow_upward"}
+                          </span>
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            style={{
+                              fontSize: 13.5,
+                              fontWeight: 600,
+                              color: T.primary,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {t.description}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: T.gray400,
+                              marginTop: 2,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 4,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <span>{t.reference}</span>
+                            <span>&bull;</span>
+                            <span>{dateStr}, {timeStr}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 800,
+                          color: isCredit ? "#10b981" : T.red,
                           flexShrink: 0,
                         }}
                       >
-                        <span
-                          className="msym"
-                          style={{
-                            fontSize: 18,
-                            color: isCredit ? "#10b981" : T.red,
-                          }}
-                        >
-                          {isCredit ? "arrow_downward" : "arrow_upward"}
+                        {isCredit ? "+" : "-"}${amtStr}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Show More / Show Less pagination toggle */}
+                {history.length > 5 && (
+                  <div
+                    style={{
+                      padding: "10px 16px",
+                      borderTop: `1px solid ${T.gray100}`,
+                      textAlign: "center",
+                      background: "#fafafa",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 12,
+                    }}
+                  >
+                    {historyLimit < history.length ? (
+                      <button
+                        onClick={() =>
+                          setHistoryLimit((prev) => Math.min(history.length, prev + 5))
+                        }
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: T.accent,
+                          fontWeight: 700,
+                          fontSize: 12.5,
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          padding: "4px 8px",
+                        }}
+                      >
+                        <span className="msym" style={{ fontSize: 16 }}>
+                          expand_more
                         </span>
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div
-                          style={{
-                            fontSize: 13.5,
-                            fontWeight: 600,
-                            color: T.primary,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {t.description}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 11,
-                            color: T.gray400,
-                            marginTop: 2,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 4,
-                            flexWrap: "wrap",
-                          }}
-                        >
-                          <span>{t.reference}</span>
-                          <span>&bull;</span>
-                          <span>{dateStr}, {timeStr}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 14,
-                        fontWeight: 800,
-                        color: isCredit ? "#10b981" : T.red,
-                        flexShrink: 0,
-                      }}
-                    >
-                      {isCredit ? "+" : "-"}${amtStr}
-                    </div>
+                        Show More ({history.length - historyLimit} remaining)
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setHistoryLimit(5)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: T.gray500,
+                          fontWeight: 600,
+                          fontSize: 12.5,
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          padding: "4px 8px",
+                        }}
+                      >
+                        <span className="msym" style={{ fontSize: 16 }}>
+                          expand_less
+                        </span>
+                        Show Less
+                      </button>
+                    )}
                   </div>
-                );
-              })
+                )}
+              </>
             )}
           </div>
         </div>

@@ -17,6 +17,7 @@ import AdminSubscriptionModal from "./AdminSubscriptionModal";
 const AdminPanel = ({ onBack, onLogout }) => {
   const handleExit = onBack || onLogout;
   const [tab, setTab] = useState("overview");
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [kycQueue, setKycQueue] = useState([]);
   const [kycLoading, setKycLoading] = useState(false);
   const [kycFilter, setKycFilter] = useState({
@@ -85,12 +86,12 @@ const AdminPanel = ({ onBack, onLogout }) => {
 
   const loadKYCQueue = useCallback(
     (filters = kycFilter) => {
-      setKycLoading(true);
       const activeFilters = {};
       if (filters.status) activeFilters.status = filters.status;
       if (filters.type) activeFilters.type = filters.type;
       if (filters.search) activeFilters.search = filters.search.trim();
 
+      Promise.resolve().then(() => setKycLoading(true));
       users.getKYCQueue(activeFilters).then(({ data, error }) => {
         setKycLoading(false);
         if (!error) {
@@ -102,6 +103,7 @@ const AdminPanel = ({ onBack, onLogout }) => {
   );
 
   const loadPortfolioQueue = useCallback(() => {
+    Promise.resolve().then(() => setPortfolioLoading(true));
     users.getPortfolioQueue().then(({ data, error }) => {
       setPortfolioLoading(false);
       if (!error && data) {
@@ -135,6 +137,7 @@ const AdminPanel = ({ onBack, onLogout }) => {
   };
 
   const loadDisputes = useCallback(() => {
+    Promise.resolve().then(() => setDisputesLoading(true));
     admin.getDisputes().then(({ data, error }) => {
       setDisputesLoading(false);
       if (!error && data) {
@@ -152,6 +155,7 @@ const AdminPanel = ({ onBack, onLogout }) => {
   }, []);
 
   const loadPlatformTransactions = useCallback(() => {
+    Promise.resolve().then(() => setTxsLoading(true));
     admin.getTransactions({ limit: 50 }).then(({ data, error }) => {
       setTxsLoading(false);
       if (!error && data) {
@@ -162,12 +166,12 @@ const AdminPanel = ({ onBack, onLogout }) => {
 
   const loadUsers = useCallback(
     (filters = userFilters) => {
-      setUsersLoading(true);
       const params = { limit: 100 };
       if (filters.search) params.search = filters.search.trim();
       if (filters.role) params.role = filters.role;
       if (filters.plan) params.plan = filters.plan;
 
+      Promise.resolve().then(() => setUsersLoading(true));
       admin.getUsers(params).then(({ data, error }) => {
         setUsersLoading(false);
         if (!error && data) {
@@ -486,11 +490,17 @@ const AdminPanel = ({ onBack, onLogout }) => {
 
     return (
       <div style={{ background: T.offWhite, minHeight: "100vh" }}>
-        <div
+        {/* Dispute Top Bar */}
+        <header
           style={{
-            background: "linear-gradient(135deg,#1e1b4b,#3730a3)",
+            background: "linear-gradient(135deg, #0b0f19 0%, #1e1b4b 60%, #312e81 100%)",
+            borderBottom: "1px solid rgba(255,255,255,0.08)",
             color: T.white,
-            padding: "0 1.5rem",
+            padding: "0 1rem",
+            position: "sticky",
+            top: 0,
+            zIndex: 100,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.18)",
           }}
         >
           <div
@@ -499,47 +509,88 @@ const AdminPanel = ({ onBack, onLogout }) => {
               margin: "0 auto",
               display: "flex",
               alignItems: "center",
-              height: 60,
-              gap: 16,
+              justifyContent: "space-between",
+              height: 58,
+              gap: 12,
             }}
           >
             <div
-              style={{ fontWeight: 800, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                cursor: "pointer",
+                minWidth: 0,
+              }}
               onClick={() => setSelectedDispute(null)}
             >
               <img
                 src="/logo.jpeg"
                 alt="Lumbrr"
                 style={{
-                  height: 34,
+                  height: 32,
                   width: "auto",
                   objectFit: "contain",
                   mixBlendMode: "screen",
                   display: "block",
+                  flexShrink: 0,
                 }}
               />
-              <span style={{ fontSize: 12, opacity: 0.7, fontWeight: 500, background: "rgba(255,255,255,0.12)", padding: "2px 8px", borderRadius: 4 }}>
-                Admin / Dispute #{d.id}
-              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: "0.06em",
+                    background: "rgba(245, 158, 11, 0.18)",
+                    color: "#fbbf24",
+                    border: "1px solid rgba(245, 158, 11, 0.35)",
+                    borderRadius: 5,
+                    padding: "2px 6px",
+                    textTransform: "uppercase",
+                    flexShrink: 0,
+                  }}
+                >
+                  Admin
+                </span>
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "rgba(255,255,255,0.9)",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  / Dispute #{d.id}
+                </span>
+              </div>
             </div>
-            <div style={{ marginLeft: "auto" }}>
-              <button
-                onClick={() => setSelectedDispute(null)}
-                style={{
-                  background: "none",
-                  border: "1px solid rgba(255,255,255,.2)",
-                  color: "rgba(255,255,255,.6)",
-                  padding: "7px 13px",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  fontSize: 12,
-                }}
-              >
-                ← Back to List
-              </button>
-            </div>
+
+            <button
+              onClick={() => setSelectedDispute(null)}
+              style={{
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.18)",
+                color: "#fff",
+                padding: "6px 12px",
+                borderRadius: 8,
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: 600,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                flexShrink: 0,
+                transition: "all 0.15s ease",
+              }}
+            >
+              <span className="msym" style={{ fontSize: 16 }}>arrow_back</span>
+              <span>Back to List</span>
+            </button>
           </div>
-        </div>
+        </header>
 
         <div
           style={{ maxWidth: 1280, margin: "0 auto", padding: "26px 1.5rem" }}
@@ -1126,13 +1177,98 @@ const AdminPanel = ({ onBack, onLogout }) => {
 
   // ─── MAIN ADMIN PANEL RENDER ──────────────────────────────────────────────
 
+  const adminTabs = [
+    { id: "overview", label: "Overview", icon: "dashboard" },
+    { id: "transactions", label: "All Transactions", icon: "receipt_long" },
+    { id: "disputes", label: "Disputes", icon: "gavel", count: openDisputesCount, badgeColor: "#ef4444" },
+    { id: "users", label: "Users", icon: "group" },
+    { id: "kyc", label: "KYC Queue", icon: "verified_user", count: pendingKycCount, badgeColor: "#f59e0b" },
+    { id: "portfolios", label: "Portfolios", icon: "folder_shared", count: portfolioQueue.length, badgeColor: "#8b5cf6" },
+    { id: "reviews", label: "Reviews", icon: "reviews" },
+  ];
+
   return (
     <div style={{ background: T.offWhite, minHeight: "100vh" }}>
-      <div
+      <style>{`
+        .admin-desk-nav {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          margin-left: 12px;
+          overflow-x: auto;
+          scrollbar-width: none;
+        }
+        .admin-desk-nav::-webkit-scrollbar {
+          display: none;
+        }
+        .adm-tab-btn {
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          padding: 7px 11px;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.65);
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          transition: all 0.15s ease;
+          white-space: nowrap;
+          text-decoration: none;
+        }
+        .adm-tab-btn:hover {
+          background: rgba(255, 255, 255, 0.08);
+          color: #fff;
+        }
+        .adm-tab-btn.active {
+          background: rgba(245, 158, 11, 0.16);
+          color: #fbbf24;
+          box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.35);
+        }
+        .admin-mob-hamburger {
+          display: none;
+        }
+        .admin-active-tab-title {
+          display: none;
+        }
+        .adm-exit-full {
+          display: inline;
+        }
+        .adm-exit-short {
+          display: none;
+        }
+
+        @media (max-width: 900px) {
+          .admin-desk-nav {
+            display: none !important;
+          }
+          .admin-mob-hamburger {
+            display: flex !important;
+          }
+          .admin-active-tab-title {
+            display: inline !important;
+          }
+          .adm-exit-full {
+            display: none !important;
+          }
+          .adm-exit-short {
+            display: inline !important;
+          }
+        }
+      `}</style>
+
+      {/* Main Top Bar */}
+      <header
         style={{
-          background: "linear-gradient(135deg,#1e1b4b,#3730a3)",
+          background: "linear-gradient(135deg, #0b0f19 0%, #1e1b4b 60%, #312e81 100%)",
+          borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
           color: T.white,
-          padding: "0 1.5rem",
+          padding: "0 1rem",
+          position: "sticky",
+          top: 0,
+          zIndex: 100,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
         }}
       >
         <div
@@ -1141,85 +1277,454 @@ const AdminPanel = ({ onBack, onLogout }) => {
             margin: "0 auto",
             display: "flex",
             alignItems: "center",
-            height: 60,
-            gap: 16,
+            justifyContent: "space-between",
+            height: 58,
+            gap: 12,
           }}
         >
-          <div
-            style={{ fontWeight: 800, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
-            onClick={handleExit}
-          >
-            <img
-              src="/logo.jpeg"
-              alt="Lumbrr"
+          {/* Left: Mobile Drawer Button + Brand Logo + Admin Badge + Active Tab Title */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <button
+              className="admin-mob-hamburger"
+              onClick={() => setMobileDrawerOpen(true)}
               style={{
+                alignItems: "center",
+                justifyContent: "center",
+                width: 36,
                 height: 36,
-                width: "auto",
-                objectFit: "contain",
-                mixBlendMode: "screen",
-                display: "block",
+                borderRadius: 8,
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                color: "#fff",
+                cursor: "pointer",
+                padding: 0,
+                flexShrink: 0,
               }}
-            />
-            <span style={{ fontSize: 11, background: "rgba(255,255,255,0.15)", color: "#fff", borderRadius: 6, padding: "3px 8px", fontWeight: 700 }}>
-              Admin
-            </span>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              gap: 0,
-              marginLeft: 12,
-              overflowX: "auto",
-            }}
-          >
-            {[
-              ["overview", "Overview"],
-              ["transactions", "All Transactions"],
-              ["disputes", "Disputes"],
-              ["users", "Users"],
-              ["kyc", `KYC Queue (${kycQueue.length})`],
-              ["portfolios", `Portfolios (${portfolioQueue.length})`],
-              ["reviews", "Reviews"],
-            ].map(([k, l]) => (
-              <button
-                key={k}
-                onClick={() => setTab(k)}
+              title="Open Navigation Menu"
+            >
+              <span className="msym" style={{ fontSize: 20 }}>menu</span>
+            </button>
+
+            <div
+              style={{
+                fontWeight: 800,
+                fontSize: 18,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                userSelect: "none",
+                minWidth: 0,
+              }}
+              onClick={handleExit}
+            >
+              <img
+                src="/logo.jpeg"
+                alt="Lumbrr"
                 style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: "8px 13px",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: tab === k ? T.gold : "rgba(255,255,255,.55)",
-                  borderBottom:
-                    tab === k ? `2px solid ${T.gold}` : "2px solid transparent",
-                  transition: "all .15s",
-                  whiteSpace: "nowrap",
+                  height: 32,
+                  width: "auto",
+                  objectFit: "contain",
+                  mixBlendMode: "screen",
+                  display: "block",
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: "0.08em",
+                  background: "rgba(245, 158, 11, 0.18)",
+                  color: "#fbbf24",
+                  border: "1px solid rgba(245, 158, 11, 0.35)",
+                  borderRadius: 5,
+                  padding: "2px 7px",
+                  textTransform: "uppercase",
+                  flexShrink: 0,
                 }}
               >
-                {l}
-              </button>
-            ))}
+                Admin
+              </span>
+              <span
+                className="admin-active-tab-title"
+                style={{
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  color: "rgba(255,255,255,0.85)",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                / {adminTabs.find((t) => t.id === tab)?.label || "Overview"}
+              </span>
+            </div>
           </div>
-          <div style={{ marginLeft: "auto" }}>
+
+          {/* Center: Desktop Navigation Tabs */}
+          <nav className="admin-desk-nav">
+            {adminTabs.map((item) => {
+              const isActive = tab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setTab(item.id)}
+                  className={`adm-tab-btn ${isActive ? "active" : ""}`}
+                >
+                  <span
+                    className="msym"
+                    style={{
+                      fontSize: 16,
+                      color: isActive ? "#fbbf24" : "rgba(255,255,255,0.5)",
+                    }}
+                  >
+                    {item.icon}
+                  </span>
+                  <span>{item.label}</span>
+                  {item.count !== undefined && item.count > 0 && (
+                    <span
+                      style={{
+                        background: item.badgeColor || "rgba(255,255,255,0.2)",
+                        color: "#fff",
+                        borderRadius: 10,
+                        fontSize: 10.5,
+                        fontWeight: 700,
+                        padding: "1px 6px",
+                        lineHeight: "14px",
+                      }}
+                    >
+                      {item.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* Right: Exit Admin Button */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             <button
               onClick={handleExit}
               style={{
-                background: "none",
-                border: "1px solid rgba(255,255,255,.2)",
-                color: "rgba(255,255,255,.6)",
-                padding: "7px 13px",
-                borderRadius: 6,
+                background: "rgba(255, 255, 255, 0.08)",
+                border: "1px solid rgba(255, 255, 255, 0.18)",
+                color: "#fff",
+                padding: "6px 12px",
+                borderRadius: 8,
                 cursor: "pointer",
                 fontSize: 12,
+                fontWeight: 600,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                transition: "all 0.15s ease",
               }}
+              title="Exit Admin Panel"
             >
-              ← Exit Admin
+              <span className="msym" style={{ fontSize: 16 }}>logout</span>
+              <span className="adm-exit-full">Exit Admin</span>
+              <span className="adm-exit-short">Exit</span>
             </button>
           </div>
         </div>
-      </div>
+      </header>
+
+      {/* Slide-out Mobile Admin Drawer */}
+      {mobileDrawerOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            display: "flex",
+          }}
+        >
+          {/* Backdrop Blur */}
+          <div
+            onClick={() => setMobileDrawerOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0, 0, 0, 0.65)",
+              backdropFilter: "blur(4px)",
+              animation: "fadeIn 0.2s ease-out",
+            }}
+          />
+
+          {/* Drawer Sheet */}
+          <aside
+            style={{
+              position: "relative",
+              zIndex: 1001,
+              width: "min(320px, 86vw)",
+              height: "100%",
+              background: "#0b0f19",
+              borderRight: "1px solid rgba(255, 255, 255, 0.12)",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "4px 0 30px rgba(0,0,0,0.5)",
+              animation: "slideInLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+            }}
+          >
+            {/* Drawer Header */}
+            <div
+              style={{
+                padding: "16px",
+                borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <img
+                  src="/logo.jpeg"
+                  alt="Lumbrr"
+                  style={{
+                    height: 30,
+                    width: "auto",
+                    objectFit: "contain",
+                    mixBlendMode: "screen",
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: "0.08em",
+                    background: "rgba(245, 158, 11, 0.18)",
+                    color: "#fbbf24",
+                    border: "1px solid rgba(245, 158, 11, 0.35)",
+                    borderRadius: 5,
+                    padding: "2px 6px",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Admin Console
+                </span>
+              </div>
+              <button
+                onClick={() => setMobileDrawerOpen(false)}
+                style={{
+                  background: "rgba(255, 255, 255, 0.06)",
+                  border: "1px solid rgba(255, 255, 255, 0.1)",
+                  color: "rgba(255, 255, 255, 0.8)",
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 0,
+                }}
+              >
+                <span className="msym" style={{ fontSize: 18 }}>close</span>
+              </button>
+            </div>
+
+            {/* Admin User Info Card */}
+            <div
+              style={{
+                padding: "14px 16px",
+                borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                background: "rgba(255, 255, 255, 0.02)",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+              }}
+            >
+              <div
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 10,
+                  background: "linear-gradient(135deg, #4338ca, #312e81)",
+                  border: "1px solid rgba(245, 158, 11, 0.4)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#fbbf24",
+                  fontWeight: 800,
+                  fontSize: 16,
+                  flexShrink: 0,
+                }}
+              >
+                <span className="msym" style={{ fontSize: 20 }}>shield_person</span>
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 13.5, color: "#fff" }}>
+                  Super Administrator
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "#10b981",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    fontWeight: 600,
+                    marginTop: 2,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: "#10b981",
+                      boxShadow: "0 0 6px #10b981",
+                    }}
+                  />
+                  Live Admin Session
+                </div>
+              </div>
+            </div>
+
+            {/* Mini Overview KPI Strip */}
+            <div
+              style={{
+                padding: "10px 14px",
+                borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 8,
+              }}
+            >
+              <div
+                style={{
+                  background: "rgba(255, 255, 255, 0.04)",
+                  border: "1px solid rgba(255, 255, 255, 0.06)",
+                  borderRadius: 8,
+                  padding: "8px 10px",
+                }}
+              >
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", fontWeight: 600 }}>
+                  ACTIVE TXS
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginTop: 2 }}>
+                  {activeCount}
+                </div>
+              </div>
+              <div
+                style={{
+                  background: "rgba(255, 255, 255, 0.04)",
+                  border: "1px solid rgba(255, 255, 255, 0.06)",
+                  borderRadius: 8,
+                  padding: "8px 10px",
+                }}
+              >
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", fontWeight: 600 }}>
+                  DISPUTES
+                </div>
+                <div
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 700,
+                    color: openDisputesCount > 0 ? "#ef4444" : "#10b981",
+                    marginTop: 2,
+                  }}
+                >
+                  {openDisputesCount}
+                </div>
+              </div>
+            </div>
+
+            {/* Navigation Tab Links */}
+            <nav style={{ flex: 1, overflowY: "auto", padding: "12px 10px", display: "flex", flexDirection: "column", gap: 3 }}>
+              {adminTabs.map((item) => {
+                const isActive = tab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setTab(item.id);
+                      setMobileDrawerOpen(false);
+                    }}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "11px 13px",
+                      borderRadius: 10,
+                      border: "none",
+                      cursor: "pointer",
+                      background: isActive
+                        ? "linear-gradient(135deg, rgba(67, 56, 202, 0.7), rgba(49, 46, 129, 0.9))"
+                        : "transparent",
+                      color: isActive ? "#fbbf24" : "rgba(255, 255, 255, 0.75)",
+                      fontWeight: isActive ? 700 : 500,
+                      fontSize: 13.5,
+                      textAlign: "left",
+                      transition: "all 0.15s ease",
+                      borderLeft: isActive ? "3px solid #fbbf24" : "3px solid transparent",
+                    }}
+                  >
+                    <span
+                      className="msym"
+                      style={{
+                        fontSize: 19,
+                        color: isActive ? "#fbbf24" : "rgba(255,255,255,0.5)",
+                      }}
+                    >
+                      {item.icon}
+                    </span>
+                    <span style={{ flex: 1 }}>{item.label}</span>
+                    {item.count !== undefined && item.count > 0 && (
+                      <span
+                        style={{
+                          background: item.badgeColor || "#ef4444",
+                          color: "#fff",
+                          borderRadius: 10,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          padding: "1px 7px",
+                        }}
+                      >
+                        {item.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
+
+            {/* Drawer Footer */}
+            <div
+              style={{
+                padding: "14px 16px",
+                borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+                background: "rgba(0, 0, 0, 0.2)",
+              }}
+            >
+              <button
+                onClick={handleExit}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(239, 68, 68, 0.35)",
+                  background: "rgba(239, 68, 68, 0.12)",
+                  color: "#fca5a5",
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <span className="msym" style={{ fontSize: 18 }}>logout</span>
+                Exit Admin Panel
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
 
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "26px 1.5rem" }}>
         <div

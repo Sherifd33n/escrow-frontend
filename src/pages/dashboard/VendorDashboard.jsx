@@ -58,6 +58,11 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
   const [showReview, setShowReview] = useState(null);
   const [showSubmitModal, setShowSubmitModal] = useState(null);
 
+  /* Jobs pagination & filters */
+  const [jobPage, setJobPage] = useState(1);
+  const [jobFilter, setJobFilter] = useState("All");
+  const JOBS_PER_PAGE = 6;
+
   const phoneDone = !!user?.phone && !!user?.phone_verified;
 
   const fetchDashboardData = useCallback(async () => {
@@ -782,20 +787,123 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
                 Click a job to submit a milestone or request payment release.
               </p>
             </div>
-            {jobs.length === 0 ? (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: 48,
-                  color: "#75777f",
-                  background: "#fff",
-                  borderRadius: 14,
-                }}
-              >
-                No active jobs yet.
-              </div>
-            ) : (
-              jobs.map((job) => (
+            {(() => {
+              const filteredJobs = jobs.filter((job) => {
+                if (jobFilter === "All") return true;
+                if (jobFilter === "Active")
+                  return !["completed", "cancelled"].includes(job.status);
+                if (jobFilter === "Under Review")
+                  return (
+                    job.status === "in_escrow" ||
+                    job.status === "review" ||
+                    job.status === "revision"
+                  );
+                if (jobFilter === "Completed") return job.status === "completed";
+                if (jobFilter === "Disputed") return job.status === "disputed";
+                return true;
+              });
+              const totalJobPages =
+                Math.ceil(filteredJobs.length / JOBS_PER_PAGE) || 1;
+              const paginatedJobs = filteredJobs.slice(
+                (jobPage - 1) * JOBS_PER_PAGE,
+                jobPage * JOBS_PER_PAGE,
+              );
+
+              return (
+                <>
+                  {/* Status Filter Chips */}
+                  {jobs.length > 0 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 6,
+                        flexWrap: "wrap",
+                        marginBottom: 16,
+                      }}
+                    >
+                      {[
+                        "All",
+                        "Active",
+                        "Under Review",
+                        "Completed",
+                        "Disputed",
+                      ].map((f) => {
+                        const count = jobs.filter((j) => {
+                          if (f === "All") return true;
+                          if (f === "Active")
+                            return !["completed", "cancelled"].includes(
+                              j.status,
+                            );
+                          if (f === "Under Review")
+                            return (
+                              j.status === "in_escrow" ||
+                              j.status === "review" ||
+                              j.status === "revision"
+                            );
+                          if (f === "Completed")
+                            return j.status === "completed";
+                          if (f === "Disputed")
+                            return j.status === "disputed";
+                          return true;
+                        }).length;
+                        const active = jobFilter === f;
+                        return (
+                          <button
+                            key={f}
+                            onClick={() => {
+                              setJobFilter(f);
+                              setJobPage(1);
+                            }}
+                            style={{
+                              padding: "6px 12px",
+                              borderRadius: 20,
+                              border: `1.5px solid ${active ? "#006c47" : "#e9e7eb"}`,
+                              background: active ? "#e8f5e9" : "#fff",
+                              color: active ? "#006c47" : "#44474e",
+                              fontWeight: active ? 700 : 500,
+                              fontSize: 12.5,
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 6,
+                              transition: "all .15s",
+                            }}
+                          >
+                            {f}
+                            <span
+                              style={{
+                                background: active ? "#006c47" : "#f0f2f5",
+                                color: active ? "#fff" : "#75777f",
+                                fontSize: 11,
+                                fontWeight: 700,
+                                borderRadius: 10,
+                                padding: "1px 6px",
+                              }}
+                            >
+                              {count}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {filteredJobs.length === 0 ? (
+                    <div
+                      style={{
+                        textAlign: "center",
+                        padding: 48,
+                        color: "#75777f",
+                        background: "#fff",
+                        borderRadius: 14,
+                      }}
+                    >
+                      {jobs.length === 0
+                        ? "No active jobs yet."
+                        : "No jobs matching this filter."}
+                    </div>
+                  ) : (
+                    paginatedJobs.map((job) => (
               <div
                 key={job.id}
                 style={{
@@ -1217,6 +1325,121 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
                 )}
               </div>
             )))}
+
+                  {/* Pagination Footer */}
+                  {filteredJobs.length > JOBS_PER_PAGE && (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginTop: 16,
+                        padding: "12px 16px",
+                        background: "#fff",
+                        borderRadius: 12,
+                        border: "1px solid #e9e7eb",
+                        flexWrap: "wrap",
+                        gap: 10,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 12.5,
+                          color: "#75777f",
+                          fontWeight: 500,
+                        }}
+                      >
+                        Showing {(jobPage - 1) * JOBS_PER_PAGE + 1}–
+                        {Math.min(jobPage * JOBS_PER_PAGE, filteredJobs.length)}{" "}
+                        of {filteredJobs.length} jobs
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <button
+                          onClick={() => setJobPage((p) => Math.max(1, p - 1))}
+                          disabled={jobPage === 1}
+                          style={{
+                            padding: "5px 10px",
+                            borderRadius: 6,
+                            border: "1px solid #e9e7eb",
+                            background: jobPage === 1 ? "#f9f9f9" : "#fff",
+                            color: jobPage === 1 ? "#c5c6cf" : "#001637",
+                            cursor: jobPage === 1 ? "default" : "pointer",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          <span className="msym" style={{ fontSize: 16 }}>
+                            chevron_left
+                          </span>
+                          Prev
+                        </button>
+                        {Array.from(
+                          { length: totalJobPages },
+                          (_, i) => i + 1,
+                        ).map((p) => (
+                          <button
+                            key={p}
+                            onClick={() => setJobPage(p)}
+                            style={{
+                              width: 30,
+                              height: 30,
+                              borderRadius: 6,
+                              border:
+                                jobPage === p
+                                  ? "1.5px solid #006c47"
+                                  : "1px solid #e9e7eb",
+                              background: jobPage === p ? "#006c47" : "#fff",
+                              color: jobPage === p ? "#fff" : "#44474e",
+                              fontWeight: jobPage === p ? 700 : 500,
+                              fontSize: 12,
+                              cursor: "pointer",
+                            }}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() =>
+                            setJobPage((p) => Math.min(totalJobPages, p + 1))
+                          }
+                          disabled={jobPage === totalJobPages}
+                          style={{
+                            padding: "5px 10px",
+                            borderRadius: 6,
+                            border: "1px solid #e9e7eb",
+                            background:
+                              jobPage === totalJobPages ? "#f9f9f9" : "#fff",
+                            color:
+                              jobPage === totalJobPages ? "#c5c6cf" : "#001637",
+                            cursor:
+                              jobPage === totalJobPages ? "default" : "pointer",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          Next
+                          <span className="msym" style={{ fontSize: 16 }}>
+                            chevron_right
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
 

@@ -65,6 +65,11 @@ export default function ClientDashboard({
   const [revisionReason, setRevisionReason] = useState("");
   const [revisionDetails, setRevisionDetails] = useState("");
 
+  /* Transactions pagination & filters */
+  const [txPage, setTxPage] = useState(1);
+  const [txFilter, setTxFilter] = useState("All");
+  const TXS_PER_PAGE = 6;
+
   const phoneDone = !!user?.phone && !!user?.phone_verified;
 
   const _fetchRef = useRef(null);
@@ -1039,20 +1044,115 @@ export default function ClientDashboard({
                 New Transaction
               </Btn>
             </div>
-            {txs.length === 0 ? (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: 48,
-                  color: "#75777f",
-                  background: "#fff",
-                  borderRadius: 14,
-                }}
-              >
-                No transactions yet.
-              </div>
-            ) : (
-              txs.map((tx) => (
+            {(() => {
+              const filteredTxs = txs.filter((t) => {
+                if (txFilter === "All") return true;
+                if (txFilter === "Active")
+                  return !["completed", "cancelled"].includes(t.status);
+                if (txFilter === "Completed") return t.status === "completed";
+                if (txFilter === "Disputed") return t.status === "disputed";
+                if (txFilter === "Revision") return t.status === "revision";
+                return true;
+              });
+              const totalTxPages = Math.ceil(filteredTxs.length / TXS_PER_PAGE) || 1;
+              const paginatedTxs = filteredTxs.slice(
+                (txPage - 1) * TXS_PER_PAGE,
+                txPage * TXS_PER_PAGE,
+              );
+
+              return (
+                <>
+                  {/* Status Filter Chips */}
+                  {txs.length > 0 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 6,
+                        flexWrap: "wrap",
+                        marginBottom: 16,
+                      }}
+                    >
+                      {["All", "Active", "Completed", "Disputed", "Revision"].map(
+                        (f) => {
+                          const count =
+                            f === "All"
+                              ? txs.length
+                              : f === "Active"
+                                ? txs.filter(
+                                    (t) =>
+                                      !["completed", "cancelled"].includes(
+                                        t.status,
+                                      ),
+                                  ).length
+                                : txs.filter(
+                                    (t) => t.status === f.toLowerCase(),
+                                  ).length;
+                          const isSel = txFilter === f;
+                          return (
+                            <button
+                              key={f}
+                              onClick={() => {
+                                setTxFilter(f);
+                                setTxPage(1);
+                              }}
+                              style={{
+                                fontSize: 12.5,
+                                padding: "6px 12px",
+                                borderRadius: 8,
+                                border: isSel
+                                  ? "1.5px solid #006c47"
+                                  : "1px solid #e9e7eb",
+                                background: isSel ? "#006c47" : "#fff",
+                                color: isSel ? "#fff" : "#44474e",
+                                fontWeight: isSel ? 700 : 500,
+                                cursor: "pointer",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
+                                transition: "all 0.15s ease",
+                              }}
+                            >
+                              {f}
+                              {count > 0 && (
+                                <span
+                                  style={{
+                                    fontSize: 10.5,
+                                    background: isSel
+                                      ? "rgba(255,255,255,0.25)"
+                                      : "#f0f0f0",
+                                    color: isSel ? "#fff" : "#75777f",
+                                    padding: "1px 6px",
+                                    borderRadius: 10,
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  {count}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        },
+                      )}
+                    </div>
+                  )}
+
+                  {filteredTxs.length === 0 ? (
+                    <div
+                      style={{
+                        textAlign: "center",
+                        padding: 48,
+                        color: "#75777f",
+                        background: "#fff",
+                        borderRadius: 14,
+                        border: "1px solid #e9e7eb",
+                      }}
+                    >
+                      {txs.length === 0
+                        ? "No transactions yet."
+                        : `No ${txFilter.toLowerCase()} transactions found.`}
+                    </div>
+                  ) : (
+                    paginatedTxs.map((tx) => (
                 <div
                   key={tx.id}
                   onClick={() => setDetail(detail?.id === tx.id ? null : tx)}
@@ -1384,8 +1484,103 @@ export default function ClientDashboard({
                 </div>
               ))
             )}
-          </div>
-        )}
+
+            {/* Bottom Pagination Controls */}
+            {totalTxPages > 1 && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginTop: 16,
+                  padding: "12px 16px",
+                  background: "#fff",
+                  borderRadius: 12,
+                  border: "1px solid #e9e7eb",
+                  flexWrap: "wrap",
+                  gap: 10,
+                }}
+              >
+                <div style={{ fontSize: 12.5, color: "#75777f", fontWeight: 500 }}>
+                  Showing {(txPage - 1) * TXS_PER_PAGE + 1}–
+                  {Math.min(txPage * TXS_PER_PAGE, filteredTxs.length)} of{" "}
+                  {filteredTxs.length} transactions
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <button
+                    onClick={() => setTxPage((p) => Math.max(1, p - 1))}
+                    disabled={txPage === 1}
+                    style={{
+                      padding: "5px 10px",
+                      borderRadius: 6,
+                      border: "1px solid #e9e7eb",
+                      background: txPage === 1 ? "#f9f9f9" : "#fff",
+                      color: txPage === 1 ? "#c5c6cf" : "#001637",
+                      cursor: txPage === 1 ? "default" : "pointer",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <span className="msym" style={{ fontSize: 16 }}>
+                      chevron_left
+                    </span>
+                    Prev
+                  </button>
+                  {Array.from({ length: totalTxPages }, (_, i) => i + 1).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setTxPage(p)}
+                      style={{
+                        width: 30,
+                        height: 30,
+                        borderRadius: 6,
+                        border:
+                          txPage === p
+                            ? "1.5px solid #006c47"
+                            : "1px solid #e9e7eb",
+                        background: txPage === p ? "#006c47" : "#fff",
+                        color: txPage === p ? "#fff" : "#44474e",
+                        fontWeight: txPage === p ? 700 : 500,
+                        fontSize: 12,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setTxPage((p) => Math.min(totalTxPages, p + 1))}
+                    disabled={txPage === totalTxPages}
+                    style={{
+                      padding: "5px 10px",
+                      borderRadius: 6,
+                      border: "1px solid #e9e7eb",
+                      background: txPage === totalTxPages ? "#f9f9f9" : "#fff",
+                      color: txPage === totalTxPages ? "#c5c6cf" : "#001637",
+                      cursor: txPage === totalTxPages ? "default" : "pointer",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    Next
+                    <span className="msym" style={{ fontSize: 16 }}>
+                      chevron_right
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        );
+      })()}
+    </div>
+  )}
 
         {/* ── WALLET ── */}
         {tab === "wallet" && (
