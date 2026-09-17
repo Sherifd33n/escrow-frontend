@@ -11,14 +11,20 @@ import {
 
 function parseScopeDeliverables(scopeJson, activeMilestone) {
   if (!scopeJson && !activeMilestone) {
-    return [{ id: "d1", name: "Milestone Deliverable", description: "Primary milestone scope work." }];
+    return [
+      {
+        id: "d1",
+        name: "Milestone Deliverable",
+        description: "Primary milestone scope work.",
+      },
+    ];
   }
 
   let parsed = scopeJson;
   if (typeof scopeJson === "string") {
     try {
       parsed = JSON.parse(scopeJson);
-    } catch (e) {
+    } catch {
       parsed = null;
     }
   }
@@ -26,7 +32,11 @@ function parseScopeDeliverables(scopeJson, activeMilestone) {
   const items = [];
   let idx = 1;
 
-  if (parsed && Array.isArray(parsed.deliverables) && parsed.deliverables.length > 0) {
+  if (
+    parsed &&
+    Array.isArray(parsed.deliverables) &&
+    parsed.deliverables.length > 0
+  ) {
     parsed.deliverables.forEach((d) => {
       if (typeof d === "string" && d.trim()) {
         items.push({ id: `d${idx++}`, name: d.trim(), description: "" });
@@ -44,17 +54,60 @@ function parseScopeDeliverables(scopeJson, activeMilestone) {
     items.push({
       id: "d1",
       name: activeMilestone.title || "Milestone Deliverable",
-      description: activeMilestone.description || activeMilestone.deliverable_note || "Milestone scope implementation.",
+      description:
+        activeMilestone.description ||
+        activeMilestone.deliverable_note ||
+        "Milestone scope implementation.",
     });
   }
 
   return items;
 }
 
-export default function SubmitDeliverableModal({ job, activeMilestone, onClose, onSubmitSuccess }) {
+function resolveEvidenceUrl(fileUrl) {
+  if (!fileUrl || typeof fileUrl !== "string") return "";
+
+  let url = fileUrl.trim();
+
+  // Fix accidentally concatenated duplicate URLs, e.g.:
+  // "https://escrow-backend-s1ws.onrender.comhttps://res.cloudinary.com/..."
+  // "https://escrow-backend-s1ws.onrender.com/https://..."
+  // "http://localhost:4000https://..."
+  const nestedHttpMatch = url.match(/https?:\/\/.*?(https?:\/\/.*)$/i);
+  if (nestedHttpMatch && nestedHttpMatch[1]) {
+    url = nestedHttpMatch[1];
+  }
+
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+
+  const configuredApiUrl = import.meta.env.VITE_API_URL;
+  const backendBase = configuredApiUrl
+    ? configuredApiUrl.replace(/\/api\/?$/, "")
+    : "http://localhost:4000";
+
+  const relativePath = url.startsWith("/") ? url : `/${url}`;
+  return `${backendBase}${relativePath}`;
+}
+
+export default function SubmitDeliverableModal({
+  job,
+  activeMilestone,
+  onClose,
+  onSubmitSuccess,
+}) {
   const categoryKey = job?.cat || job?.category || job?.type || "web";
-  const catConfig = useMemo(() => getCategoryConfig(categoryKey), [categoryKey]);
-  const scopeItems = useMemo(() => parseScopeDeliverables(job?.scope_json, activeMilestone), [job, activeMilestone]);
+
+  const catConfig = useMemo(
+    () => getCategoryConfig(categoryKey),
+    [categoryKey],
+  );
+
+  const scopeItems = useMemo(
+    () => parseScopeDeliverables(job?.scope_json, activeMilestone),
+    [job, activeMilestone],
+  );
 
   const [deliverables, setDeliverables] = useState(() =>
     scopeItems.map((item) => ({
@@ -63,49 +116,62 @@ export default function SubmitDeliverableModal({ job, activeMilestone, onClose, 
       description: item.description,
       status: "completed",
       claim: "",
-    }))
+    })),
   );
 
   const [evidenceMap, setEvidenceMap] = useState(() => {
     const initialMap = {};
+
     (catConfig.evidenceTypes || []).forEach((ev) => {
       initialMap[ev.id] = { url: "", description: "" };
     });
+
     return initialMap;
   });
 
   const [customFieldsMap, setCustomFieldsMap] = useState(() => {
     const map = {};
+
     (catConfig.customFields || []).forEach((cf) => {
       map[cf.id] = cf.default !== undefined ? cf.default : "";
     });
+
     return map;
   });
 
-  const [testingInfo, setTestingInfo] = useState({
+  const [testingInfo] = useState({
     performed: catConfig.testing?.defaultPerformed ?? true,
     summary: "",
     reportUrl: "",
   });
 
   const [providerSummary, setProviderSummary] = useState("");
+
   const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [errorMsg, setErrorMsg] = useState(null);
+
   // Track per-evidence-type uploading state: { [evId]: boolean }
   const [uploadingEvidence, setUploadingEvidence] = useState({});
+
   // Track uploaded file names for display: { [evId]: string }
   const [uploadedFileNames, setUploadedFileNames] = useState({});
+
   const fileInputRefs = useRef({});
 
   const updateItemStatus = (scopeId, newStatus) => {
     setDeliverables((prev) =>
-      prev.map((item) => (item.scope_item_id === scopeId ? { ...item, status: newStatus } : item))
+      prev.map((item) =>
+        item.scope_item_id === scopeId ? { ...item, status: newStatus } : item,
+      ),
     );
   };
 
   const updateItemClaim = (scopeId, newClaim) => {
     setDeliverables((prev) =>
-      prev.map((item) => (item.scope_item_id === scopeId ? { ...item, claim: newClaim } : item))
+      prev.map((item) =>
+        item.scope_item_id === scopeId ? { ...item, claim: newClaim } : item,
+      ),
     );
   };
 
@@ -121,15 +187,24 @@ export default function SubmitDeliverableModal({ job, activeMilestone, onClose, 
   };
 
   const readiness = useMemo(
-    () => calculateSubmissionReadiness(catConfig.id, deliverables, evidenceMap, testingInfo, customFieldsMap),
-    [catConfig.id, deliverables, evidenceMap, testingInfo, customFieldsMap]
+    () =>
+      calculateSubmissionReadiness(
+        catConfig.id,
+        deliverables,
+        evidenceMap,
+        testingInfo,
+        customFieldsMap,
+      ),
+    [catConfig.id, deliverables, evidenceMap, testingInfo, customFieldsMap],
   );
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
+
     setErrorMsg(null);
 
     const valErr = validateSubmissionInputs(evidenceMap);
+
     if (valErr) {
       setErrorMsg(valErr);
       return;
@@ -141,16 +216,20 @@ export default function SubmitDeliverableModal({ job, activeMilestone, onClose, 
       // Ensure deliverables claims and evidence are populated from the 3 artifacts
       const updatedDeliverables = deliverables.map((d, idx) => {
         const sid = d.scope_item_id || d.id || `d${idx + 1}`;
+
         let claimText = d.claim || "";
 
         if (idx === 0 || sid === "d1") {
           claimText = evidenceMap["zip_package"]?.url
             ? `ZIP implementation package provided: ${evidenceMap["zip_package"].url}`
-            : (providerSummary || "ZIP package delivered.");
+            : providerSummary || "ZIP package delivered.";
         } else if (idx === 1 || sid === "d2") {
-          claimText = providerSummary.trim() || "Project text explanation and overview provided.";
+          claimText =
+            providerSummary.trim() ||
+            "Project text explanation and overview provided.";
         } else {
-          claimText = providerSummary.trim() || claimText || "Deliverable completed.";
+          claimText =
+            providerSummary.trim() || claimText || "Deliverable completed.";
         }
 
         return {
@@ -172,14 +251,21 @@ export default function SubmitDeliverableModal({ job, activeMilestone, onClose, 
       });
 
       const milestoneIdToSubmit = activeMilestone?.id;
+
       if (!milestoneIdToSubmit) {
         throw new Error("Active milestone ID is missing.");
       }
 
-      const res = await transactions.updateMilestoneStatus(milestoneIdToSubmit, "submitted", {
-        deliverable_note: providerSummary.trim() || `${catConfig.label} deliverable submitted for review`,
-        submission_data: payload,
-      });
+      const res = await transactions.updateMilestoneStatus(
+        milestoneIdToSubmit,
+        "submitted",
+        {
+          deliverable_note:
+            providerSummary.trim() ||
+            `${catConfig.label} deliverable submitted for review`,
+          submission_data: payload,
+        },
+      );
 
       if (res.error) {
         setErrorMsg(res.error);
@@ -191,7 +277,11 @@ export default function SubmitDeliverableModal({ job, activeMilestone, onClose, 
       onClose();
     } catch (err) {
       console.error("Submission failed:", err);
-      setErrorMsg(err.message || "Failed to submit deliverable. Please try again.");
+
+      setErrorMsg(
+        err.message || "Failed to submit deliverable. Please try again.",
+      );
+
       setIsSubmitting(false);
     }
   };
@@ -209,7 +299,9 @@ export default function SubmitDeliverableModal({ job, activeMilestone, onClose, 
         padding: 16,
         backdropFilter: "blur(4px)",
       }}
-      onClick={(e) => e.target === e.currentTarget && !isSubmitting && onClose()}
+      onClick={(e) =>
+        e.target === e.currentTarget && !isSubmitting && onClose()
+      }
     >
       <div
         style={{
@@ -226,7 +318,8 @@ export default function SubmitDeliverableModal({ job, activeMilestone, onClose, 
         {/* Header */}
         <div
           style={{
-            background: catConfig.bgGradient || "linear-gradient(135deg,#001637,#006c47)",
+            background:
+              catConfig.bgGradient || "linear-gradient(135deg,#001637,#006c47)",
             padding: "20px 24px",
             color: T.white,
             display: "flex",
@@ -238,14 +331,33 @@ export default function SubmitDeliverableModal({ job, activeMilestone, onClose, 
           }}
         >
           <div>
-            <div style={{ fontWeight: 800, fontSize: 17, display: "flex", alignItems: "center", gap: 8 }}>
-              <span className="msym" style={{ fontSize: 22 }}>{catConfig.icon || "language"}</span>
+            <div
+              style={{
+                fontWeight: 800,
+                fontSize: 17,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <span className="msym" style={{ fontSize: 22 }}>
+                {catConfig.icon || "language"}
+              </span>
               {catConfig.label} Submission
             </div>
-            <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>
-              {job?.title} &bull; {activeMilestone?.title || "Milestone Deliverable"}
+
+            <div
+              style={{
+                fontSize: 12,
+                opacity: 0.8,
+                marginTop: 2,
+              }}
+            >
+              {job?.title} &bull;{" "}
+              {activeMilestone?.title || "Milestone Deliverable"}
             </div>
           </div>
+
           <button
             onClick={onClose}
             disabled={isSubmitting}
@@ -297,7 +409,10 @@ export default function SubmitDeliverableModal({ job, activeMilestone, onClose, 
               lineHeight: 1.55,
             }}
           >
-            <strong>Standard Provider Submission:</strong> Submit your ZIP package and project text summary below. The AI Audit System will unpack your ZIP archive, inspect all source files inside, and evaluate your submission against the scope.
+            <strong>Standard Provider Submission:</strong> Submit your ZIP
+            package and project text summary below. The AI Audit System will
+            unpack your ZIP archive, inspect all source files inside, and
+            evaluate your submission against the scope.
           </div>
 
           {/* Artifact 1: Complete Project ZIP Package */}
@@ -310,12 +425,32 @@ export default function SubmitDeliverableModal({ job, activeMilestone, onClose, 
               marginBottom: 16,
             }}
           >
-            <div style={{ fontWeight: 700, fontSize: 13.5, color: "#0f172a", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
-              <span className="msym" style={{ fontSize: 20, color: "#2563eb" }}>folder_zip</span>
+            <div
+              style={{
+                fontWeight: 700,
+                fontSize: 13.5,
+                color: "#0f172a",
+                marginBottom: 4,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <span className="msym" style={{ fontSize: 20, color: "#2563eb" }}>
+                folder_zip
+              </span>
               1. Complete Project Implementation Archive (ZIP File)
             </div>
-            <div style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>
-              Upload a ZIP package or paste a repository/ZIP URL containing all source code, assets, and project files.
+
+            <div
+              style={{
+                fontSize: 12,
+                color: "#64748b",
+                marginBottom: 10,
+              }}
+            >
+              Upload a ZIP package or paste a repository/ZIP URL containing all
+              source code, assets, and project files.
             </div>
 
             <input
@@ -335,73 +470,156 @@ export default function SubmitDeliverableModal({ job, activeMilestone, onClose, 
               }}
             />
 
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 11.5, color: "#94a3b8", fontWeight: 600 }}>OR</span>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11.5,
+                  color: "#94a3b8",
+                  fontWeight: 600,
+                }}
+              >
+                OR
+              </span>
+
               <input
-                ref={(el) => { fileInputRefs.current["zip_package"] = el; }}
+                ref={(el) => {
+                  fileInputRefs.current["zip_package"] = el;
+                }}
                 type="file"
                 accept=".zip"
                 style={{ display: "none" }}
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
+
                   if (!file) return;
-                  setUploadingEvidence((prev) => ({ ...prev, zip_package: true }));
-                  const { data, error } = await transactions.uploadEvidenceFile(file);
-                  setUploadingEvidence((prev) => ({ ...prev, zip_package: false }));
+
+                  setUploadingEvidence((prev) => ({
+                    ...prev,
+                    zip_package: true,
+                  }));
+
+                  const { data, error } =
+                    await transactions.uploadEvidenceFile(file);
+
+                  setUploadingEvidence((prev) => ({
+                    ...prev,
+                    zip_package: false,
+                  }));
+
                   if (error) {
                     setErrorMsg(`ZIP upload failed: ${error}`);
                     return;
                   }
-                  const backendBase = import.meta.env.VITE_API_URL
-                    ? import.meta.env.VITE_API_URL.replace("/api", "")
-                    : "http://localhost:4000";
-                  const fullUrl = `${backendBase}${data.url}`;
+
+                  // FIX:
+                  // Safely resolve the URL returned by the backend.
+                  // This prevents malformed URLs such as:
+                  // https://escrow-backend-s1ws.onrender.comhttps...
+                  const fullUrl = resolveEvidenceUrl(data?.url);
+
+                  if (!fullUrl) {
+                    setErrorMsg(
+                      "ZIP upload succeeded, but no file URL was returned by the server.",
+                    );
+                    return;
+                  }
+
                   updateEvidenceUrl("zip_package", fullUrl);
-                  setUploadedFileNames((prev) => ({ ...prev, zip_package: data.original_name }));
+
+                  setUploadedFileNames((prev) => ({
+                    ...prev,
+                    zip_package: data.original_name,
+                  }));
                 }}
                 disabled={uploadingEvidence["zip_package"] || isSubmitting}
               />
+
               <button
                 type="button"
                 disabled={uploadingEvidence["zip_package"] || isSubmitting}
                 onClick={() => fileInputRefs.current["zip_package"]?.click()}
                 style={{
-                  display: "flex", alignItems: "center", gap: 5,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
                   border: "1.5px dashed #2563eb",
                   borderRadius: 8,
                   background: "#eff6ff",
                   padding: "6px 12px",
                   fontSize: 12,
                   color: "#1d4ed8",
-                  cursor: uploadingEvidence["zip_package"] || isSubmitting ? "not-allowed" : "pointer",
+                  cursor:
+                    uploadingEvidence["zip_package"] || isSubmitting
+                      ? "not-allowed"
+                      : "pointer",
                   fontWeight: 600,
                 }}
               >
                 {uploadingEvidence["zip_package"] ? (
-                  <><Spin size={12} color="#1d4ed8" /> Uploading ZIP…</>
+                  <>
+                    <Spin size={12} color="#1d4ed8" /> Uploading ZIP…
+                  </>
                 ) : (
-                  <><span className="msym" style={{ fontSize: 16 }}>attach_file</span> Attach ZIP Package</>
+                  <>
+                    <span className="msym" style={{ fontSize: 16 }}>
+                      attach_file
+                    </span>{" "}
+                    Attach ZIP Package
+                  </>
                 )}
               </button>
 
-              {uploadedFileNames["zip_package"] && evidenceMap["zip_package"]?.url && (
-                <span style={{
-                  display: "flex", alignItems: "center", gap: 4,
-                  background: "#d1fae5", color: "#047857",
-                  borderRadius: 20, padding: "3px 10px", fontSize: 11.5, fontWeight: 600,
-                }}>
-                  <span className="msym" style={{ fontSize: 13 }}>check_circle</span>
-                  {uploadedFileNames["zip_package"]}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updateEvidenceUrl("zip_package", "");
-                      setUploadedFileNames((prev) => ({ ...prev, zip_package: null }));
+              {uploadedFileNames["zip_package"] &&
+                evidenceMap["zip_package"]?.url && (
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      background: "#d1fae5",
+                      color: "#047857",
+                      borderRadius: 20,
+                      padding: "3px 10px",
+                      fontSize: 11.5,
+                      fontWeight: 600,
                     }}
-                    style={{ background: "none", border: "none", color: "#047857", cursor: "pointer", padding: 0, fontSize: 13, marginLeft: 2 }}
-                  >&times;</button>
-                </span>
-              )}
+                  >
+                    <span className="msym" style={{ fontSize: 13 }}>
+                      check_circle
+                    </span>
+
+                    {uploadedFileNames["zip_package"]}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateEvidenceUrl("zip_package", "");
+
+                        setUploadedFileNames((prev) => ({
+                          ...prev,
+                          zip_package: null,
+                        }));
+                      }}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "#047857",
+                        cursor: "pointer",
+                        padding: 0,
+                        fontSize: 13,
+                        marginLeft: 2,
+                      }}
+                    >
+                      &times;
+                    </button>
+                  </span>
+                )}
             </div>
           </div>
 
@@ -415,12 +633,33 @@ export default function SubmitDeliverableModal({ job, activeMilestone, onClose, 
               marginBottom: 20,
             }}
           >
-            <div style={{ fontWeight: 700, fontSize: 13.5, color: "#0f172a", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
-              <span className="msym" style={{ fontSize: 20, color: "#16a34a" }}>description</span>
+            <div
+              style={{
+                fontWeight: 700,
+                fontSize: 13.5,
+                color: "#0f172a",
+                marginBottom: 4,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <span className="msym" style={{ fontSize: 20, color: "#16a34a" }}>
+                description
+              </span>
               2. Project Summary & Implementation Notes (Text Explanation)
             </div>
-            <div style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>
-              Provide a clear text explanation describing what was built, feature overview, setup/installation instructions, and verification notes.
+
+            <div
+              style={{
+                fontSize: 12,
+                color: "#64748b",
+                marginBottom: 10,
+              }}
+            >
+              Provide a clear text explanation describing what was built,
+              feature overview, setup/installation instructions, and
+              verification notes.
             </div>
 
             <textarea
@@ -428,9 +667,15 @@ export default function SubmitDeliverableModal({ job, activeMilestone, onClose, 
               value={providerSummary}
               onChange={(e) => {
                 const textVal = e.target.value;
+
                 setProviderSummary(textVal);
+
                 updateItemClaim("d2", textVal);
-                updateItemClaim("d1", textVal ? "ZIP package provided in Artifact #1" : "");
+
+                updateItemClaim(
+                  "d1",
+                  textVal ? "ZIP package provided in Artifact #1" : "",
+                );
               }}
               style={{
                 width: "100%",
@@ -449,39 +694,122 @@ export default function SubmitDeliverableModal({ job, activeMilestone, onClose, 
           </div>
 
           {/* AI Pre-Audit Readiness Check Banner */}
-          <div style={{ background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 12, padding: "14px 16px", marginBottom: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <div style={{ fontWeight: 700, fontSize: 13, color: "#0f172a", display: "flex", alignItems: "center", gap: 6 }}>
-                <span className="msym" style={{ fontSize: 16, color: "#0284c7" }}>smart_toy</span>
+          <div
+            style={{
+              background: "#f1f5f9",
+              border: "1px solid #cbd5e1",
+              borderRadius: 12,
+              padding: "14px 16px",
+              marginBottom: 20,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 8,
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: 700,
+                  fontSize: 13,
+                  color: "#0f172a",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <span
+                  className="msym"
+                  style={{ fontSize: 16, color: "#0284c7" }}
+                >
+                  smart_toy
+                </span>
                 AI Submission Readiness Pre-Check
               </div>
-              <span style={{ fontSize: 12, fontWeight: 800, color: readiness.pct >= 75 ? "#059669" : "#d97706" }}>
+
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 800,
+                  color: readiness.pct >= 75 ? "#059669" : "#d97706",
+                }}
+              >
                 {readiness.pct}% Readiness
               </span>
             </div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", fontSize: 11.5 }}>
-              <span style={{ padding: "3px 8px", borderRadius: 12, fontWeight: 600, background: evidenceMap["zip_package"]?.url ? "#d1fae5" : "#fef3c7", color: evidenceMap["zip_package"]?.url ? "#047857" : "#b45309" }}>
-                {evidenceMap["zip_package"]?.url ? "✓" : "⚠"} ZIP Package Attached
+
+            <div
+              style={{
+                display: "flex",
+                gap: 6,
+                flexWrap: "wrap",
+                fontSize: 11.5,
+              }}
+            >
+              <span
+                style={{
+                  padding: "3px 8px",
+                  borderRadius: 12,
+                  fontWeight: 600,
+                  background: evidenceMap["zip_package"]?.url
+                    ? "#d1fae5"
+                    : "#fef3c7",
+                  color: evidenceMap["zip_package"]?.url
+                    ? "#047857"
+                    : "#b45309",
+                }}
+              >
+                {evidenceMap["zip_package"]?.url ? "✓" : "⚠"} ZIP Package
+                Attached
               </span>
-              <span style={{ padding: "3px 8px", borderRadius: 12, fontWeight: 600, background: providerSummary.trim().length > 10 ? "#d1fae5" : "#fef3c7", color: providerSummary.trim().length > 10 ? "#047857" : "#b45309" }}>
-                {providerSummary.trim().length > 10 ? "✓" : "⚠"} Text Explanation Provided
+
+              <span
+                style={{
+                  padding: "3px 8px",
+                  borderRadius: 12,
+                  fontWeight: 600,
+                  background:
+                    providerSummary.trim().length > 10 ? "#d1fae5" : "#fef3c7",
+                  color:
+                    providerSummary.trim().length > 10 ? "#047857" : "#b45309",
+                }}
+              >
+                {providerSummary.trim().length > 10 ? "✓" : "⚠"} Text
+                Explanation Provided
               </span>
             </div>
           </div>
 
           {/* Action Buttons */}
           <div style={{ display: "flex", gap: 10 }}>
-            <Btn type="button" variant="outline" onClick={onClose} disabled={isSubmitting} style={{ flex: 1, fontSize: 13 }}>
+            <Btn
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isSubmitting}
+              style={{ flex: 1, fontSize: 13 }}
+            >
               Cancel
             </Btn>
-            <Btn type="submit" variant="accent" disabled={isSubmitting} style={{ flex: 2, fontSize: 13 }}>
+
+            <Btn
+              type="submit"
+              variant="accent"
+              disabled={isSubmitting}
+              style={{ flex: 2, fontSize: 13 }}
+            >
               {isSubmitting ? (
                 <>
                   <Spin size={14} color="#fff" /> Submitting Deliverable...
                 </>
               ) : (
                 <>
-                  <span className="msym" style={{ fontSize: 16 }}>upload</span>
+                  <span className="msym" style={{ fontSize: 16 }}>
+                    upload
+                  </span>
                   Submit Project Deliverables
                 </>
               )}
