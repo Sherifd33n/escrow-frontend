@@ -415,6 +415,53 @@ export default function SubmittedDeliverablesViewer({
         )}
       </div>
 
+      {/* Checkpoint Summary — what was contracted for this milestone */}
+      {activeM && (activeM.expected_project_progress != null || (Array.isArray(activeM.deliverables) && activeM.deliverables.length > 0) || (Array.isArray(activeM.acceptance_criteria) && activeM.acceptance_criteria.length > 0)) && (
+        <div
+          style={{
+            background: "#faf5ff",
+            border: "1px solid #e9d5ff",
+            borderRadius: 10,
+            padding: "12px 14px",
+            marginBottom: 14,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
+            <span className="msym" style={{ fontSize: 16, color: "#7c3aed" }}>flag</span>
+            <span style={{ fontWeight: 700, fontSize: 12, color: "#6d28d9" }}>
+              Agreed Checkpoint — {activeM.title || "Milestone"}
+            </span>
+            {activeM.expected_project_progress != null && (
+              <span style={{ fontSize: 10, fontWeight: 700, color: "#7c3aed", background: "#ede9fe", borderRadius: 6, padding: "1px 7px", marginLeft: "auto" }}>
+                🎯 {activeM.expected_project_progress}%
+              </span>
+            )}
+          </div>
+          {Array.isArray(activeM.deliverables) && activeM.deliverables.length > 0 && (
+            <div style={{ marginBottom: 5 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#6d28d9", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 2 }}>Expected Deliverables</div>
+              {activeM.deliverables.map((d, idx) => (
+                <div key={idx} style={{ fontSize: 11.5, color: "#374151", paddingLeft: 6, display: "flex", gap: 5, lineHeight: 1.5 }}>
+                  <span style={{ color: "#7c3aed", flexShrink: 0 }}>•</span>
+                  <span>{typeof d === "string" ? d : d.name || d.description || JSON.stringify(d)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {Array.isArray(activeM.acceptance_criteria) && activeM.acceptance_criteria.length > 0 && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#0369a1", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 2 }}>Acceptance Criteria</div>
+              {activeM.acceptance_criteria.map((c, idx) => (
+                <div key={idx} style={{ fontSize: 11.5, color: "#374151", paddingLeft: 6, display: "flex", gap: 5, lineHeight: 1.5 }}>
+                  <span style={{ color: "#0369a1", flexShrink: 0 }}>✓</span>
+                  <span>{typeof c === "string" ? c : c.description || c.text || JSON.stringify(c)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Submitted Files & ZIP Packages List */}
       {fileItems.length > 0 && (
         <div style={{ marginBottom: 12 }}>

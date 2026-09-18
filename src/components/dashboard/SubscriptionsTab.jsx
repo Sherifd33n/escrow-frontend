@@ -16,6 +16,7 @@ const MILESTONE_CFG = {
   paid:      { label:"Paid",                 icon:"check_circle",           color:"#006c47", bg:"#f0fdf4" },
   approved:  { label:"Approved",             icon:"check_circle",           color:"#006c47", bg:"#f0fdf4" },
   submitted: { label:"Submitted for Review", icon:"assignment_turned_in", color:"#1d4ed8", bg:"#eff6ff" },
+  rejected:  { label:"Revision Requested",  icon:"replay",                 color:"#f59e0b", bg:"#fffbeb" },
   inprogress:{ label:"In Progress",          icon:"sync",                   color:"#3b82f6", bg:"#eff6ff" },
   due:       { label:"Due Now",              icon:"schedule",               color:"#dc2626", bg:"#fef2f2" },
   upcoming:  { label:"Upcoming",             icon:"radio_button_unchecked", color:"#8b5cf6", bg:"#f5f3ff" },
@@ -33,9 +34,11 @@ function PaymentCard({ payment, onPay, optimisticStatuses = {} }) {
     status: optimisticStatuses[m.id] || m.status,
   }));
 
-  // Recalculate paid/remaining based on merged statuses (paid, submitted, approved all count as funded)
+  // Recalculate paid/remaining based on merged statuses.
+  // Any milestone whose escrow has been funded counts toward "paid", even if the
+  // client later requested a revision ('rejected').  The money stays in escrow.
   const effectivePaid = milestones
-    .filter(m => ["paid", "submitted", "approved"].includes(m.status))
+    .filter(m => ["paid", "submitted", "approved", "rejected"].includes(m.status))
     .reduce((s, m) => s + parseFloat(m.amount || 0), 0);
   const effectiveRemaining = Math.max(0, payment.totalAmount - effectivePaid);
 
@@ -141,7 +144,7 @@ function PaymentCard({ payment, onPay, optimisticStatuses = {} }) {
               // Hide Pay Now if the overall transaction is completed (normal completion
               // or dispute resolution) OR if this specific milestone was already paid/submitted/approved.
               const isPayable = payment.status !== "completed" &&
-                !["paid", "submitted", "approved"].includes(m.status);
+                !["paid", "submitted", "approved", "rejected"].includes(m.status);
               return (
                 <div key={i} style={{display:"flex",alignItems:"center",gap:12,
                   background: mc.bg,borderRadius:10,padding:"12px 14px",

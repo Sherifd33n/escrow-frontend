@@ -12,6 +12,7 @@ const ScopeModal = ({ catLabel, currentAmount, transactionId, onClose, onApply }
   const [editMilestonesCount, setEditMilestonesCount] = useState("2");
   const [editReviewDays, setEditReviewDays] = useState("3");
   const [editAmount, setEditAmount] = useState(currentAmount ? String(currentAmount) : "");
+  const [milestoneDueDates, setMilestoneDueDates] = useState({});
 
   const gen = async () => {
     if (!desc.trim()) return;
@@ -29,6 +30,10 @@ const ScopeModal = ({ catLabel, currentAmount, transactionId, onClose, onApply }
       setEditMilestonesCount(String(data.scope.milestones_count || data.scope.milestones?.length || 2));
       setEditReviewDays(String(data.scope.review_days || 3));
       if (data.scope.amount) setEditAmount(String(data.scope.amount));
+      // Initialize empty due dates for each milestone
+      const dates = {};
+      (data.scope.milestones || []).forEach((_, idx) => { dates[idx] = ""; });
+      setMilestoneDueDates(dates);
     }
     setLd(false);
   };
@@ -54,6 +59,18 @@ const ScopeModal = ({ catLabel, currentAmount, transactionId, onClose, onApply }
       finalMilestones = updated;
     }
 
+    // Attach client-set due dates to each milestone
+    finalMilestones = finalMilestones.map((m, idx) => {
+      const dueDate = milestoneDueDates[idx];
+      if (dueDate) {
+        return { ...m, due_date: dueDate };
+      }
+      return m;
+    });
+
+    // Derive agreed deadline from the last milestone's due date
+    const lastDueDate = milestoneDueDates[finalMilestones.length - 1];
+
     const parsedAmt = parseFloat(editAmount);
     const finalAmount = !isNaN(parsedAmt) && parsedAmt > 0 ? parsedAmt : (res.amount || (currentAmount ? parseFloat(currentAmount) : null));
 
@@ -65,6 +82,7 @@ const ScopeModal = ({ catLabel, currentAmount, transactionId, onClose, onApply }
       milestones_count: mCount,
       review_days: Math.min(30, Math.max(1, parseInt(editReviewDays) || 3)),
       milestones: finalMilestones,
+      ...(lastDueDate ? { agreed_deadline: lastDueDate } : {}),
     };
     onApply(finalScope);
     onClose();
@@ -240,7 +258,10 @@ const ScopeModal = ({ catLabel, currentAmount, transactionId, onClose, onApply }
                   <div style={{ fontWeight: 700, fontSize: 13.5, color: T.primary, marginBottom: 10 }}>
                     Proposed Milestones ({res.milestones.length})
                   </div>
-                  {res.milestones.map((m, i) => (
+                  {res.milestones.map((m, i) => {
+                    const msDeliverables = Array.isArray(m.deliverables) ? m.deliverables : [];
+                    const msCriteria = Array.isArray(m.acceptance_criteria) ? m.acceptance_criteria : [];
+                    return (
                     <div
                       key={i}
                       style={{
@@ -252,12 +273,70 @@ const ScopeModal = ({ catLabel, currentAmount, transactionId, onClose, onApply }
                         fontSize: 12.5,
                       }}
                     >
-                      <div style={{ fontWeight: 700, color: "#0f172a", marginBottom: 2 }}>
-                        {i + 1}. {m.name || m.title || `Phase ${i + 1}`} {m.timeline ? `(${m.timeline})` : ""}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                        <span style={{ fontWeight: 700, color: "#0f172a" }}>
+                          {i + 1}. {m.name || m.title || `Phase ${i + 1}`} {m.timeline ? `(${m.timeline})` : ""}
+                        </span>
+                        {m.expected_project_progress != null && (
+                          <span style={{ fontSize: 10, fontWeight: 700, color: "#7c3aed", background: "#ede9fe", borderRadius: 6, padding: "1px 7px", whiteSpace: "nowrap" }}>
+                            🎯 {m.expected_project_progress}%
+                          </span>
+                        )}
                       </div>
                       {m.description && <div style={{ color: "#64748b", fontSize: 12 }}>{m.description}</div>}
+                      {/* Editable Due Date per Milestone */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                        <label style={{ fontSize: 11, fontWeight: 700, color: "#334155", whiteSpace: "nowrap" }}>
+                          📅 Due Date{i === res.milestones.length - 1 ? " (Project Deadline)" : ""}:
+                        </label>
+                        <input
+                          type="date"
+                          value={milestoneDueDates[i] || ""}
+                          onChange={(e) => setMilestoneDueDates((prev) => ({ ...prev, [i]: e.target.value }))}
+                          style={{
+                            fontSize: 12,
+                            padding: "4px 8px",
+                            borderRadius: 6,
+                            border: "1px solid #cbd5e1",
+                            background: "#fff",
+                            color: "#0f172a",
+                            fontFamily: "inherit",
+                            flex: 1,
+                            maxWidth: 180,
+                          }}
+                          min={i > 0 && milestoneDueDates[i - 1] ? milestoneDueDates[i - 1] : undefined}
+                        />
+                        {milestoneDueDates[i] && (
+                          <span style={{ fontSize: 10.5, color: "#15803d", fontWeight: 600 }}>
+                            {new Date(milestoneDueDates[i] + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                          </span>
+                        )}
+                      </div>
+                      {msDeliverables.length > 0 && (
+                        <div style={{ marginTop: 5 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: "#6d28d9", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 2 }}>Deliverables</div>
+                          {msDeliverables.map((d, di) => (
+                            <div key={di} style={{ fontSize: 11.5, color: "#374151", paddingLeft: 6, display: "flex", gap: 5, lineHeight: 1.5 }}>
+                              <span style={{ color: "#7c3aed", flexShrink: 0 }}>•</span>
+                              <span>{typeof d === "string" ? d : d.name || d.description || JSON.stringify(d)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {msCriteria.length > 0 && (
+                        <div style={{ marginTop: 4 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: "#0369a1", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 2 }}>Acceptance Criteria</div>
+                          {msCriteria.map((c, ci) => (
+                            <div key={ci} style={{ fontSize: 11.5, color: "#374151", paddingLeft: 6, display: "flex", gap: 5, lineHeight: 1.5 }}>
+                              <span style={{ color: "#0369a1", flexShrink: 0 }}>✓</span>
+                              <span>{typeof c === "string" ? c : c.description || c.text || JSON.stringify(c)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 

@@ -4,6 +4,7 @@ import { Btn } from "../../components/ui";
 import { transactions } from "../../utils/api";
 
 import ScopeModal from "./ScopeModal";
+import { getDeadlineCountdown } from "../../utils/deadline";
 
 // ─── helper: parse JSON that may already be an object ───────────────
 function parseScopeField(raw) {
@@ -116,6 +117,9 @@ const MilestoneCard = ({ m, i }) => {
     m.dueDate || m.due_date
       ? new Date(m.dueDate || m.due_date).toLocaleDateString()
       : null;
+  const progress = m.expected_project_progress;
+  const mDeliverables = Array.isArray(m.deliverables) ? m.deliverables : [];
+  const mCriteria = Array.isArray(m.acceptance_criteria) ? m.acceptance_criteria : [];
 
   return (
     <div
@@ -132,7 +136,7 @@ const MilestoneCard = ({ m, i }) => {
           display: "flex",
           alignItems: "center",
           gap: 10,
-          marginBottom: desc || aiTimeline || startDate ? 8 : 0,
+          marginBottom: desc || aiTimeline || startDate || progress ? 8 : 0,
         }}
       >
         <span
@@ -155,6 +159,22 @@ const MilestoneCard = ({ m, i }) => {
         <span style={{ fontWeight: 700, fontSize: 13.5, color: "#1e293b" }}>
           {name}
         </span>
+        {progress != null && (
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: "#7c3aed",
+              background: "#ede9fe",
+              borderRadius: 8,
+              padding: "2px 8px",
+              marginLeft: "auto",
+              whiteSpace: "nowrap",
+            }}
+          >
+            🎯 {progress}% Checkpoint
+          </span>
+        )}
       </div>
       {desc && (
         <div
@@ -205,21 +225,53 @@ const MilestoneCard = ({ m, i }) => {
             ▶ Start: {startDate}
           </span>
         )}
-        {dueDate && (
-          <span
-            style={{
-              fontSize: 11.5,
-              color: "#b45309",
-              fontWeight: 600,
-              background: "#fffbeb",
-              borderRadius: 6,
-              padding: "2px 8px",
-            }}
-          >
-            ⏱ Due: {dueDate}
-          </span>
-        )}
+        {dueDate && (() => {
+          const deadlineInfo = getDeadlineCountdown(m.dueDate || m.due_date);
+          return (
+            <span
+              style={{
+                fontSize: 11.5,
+                color: deadlineInfo?.badgeColor || "#b45309",
+                fontWeight: 600,
+                background: deadlineInfo?.badgeBg || "#fffbeb",
+                border: `1px solid ${deadlineInfo?.badgeBorder || "#fde68a"}`,
+                borderRadius: 6,
+                padding: "2px 8px",
+              }}
+            >
+              ⏱ Due: {dueDate} {deadlineInfo ? `(${deadlineInfo.label.replace("⏰ ", "").replace("⚠️ ", "")})` : ""}
+            </span>
+          );
+        })()}
       </div>
+      {/* Checkpoint Deliverables */}
+      {mDeliverables.length > 0 && (
+        <div style={{ paddingLeft: 36, marginTop: 8 }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, color: "#6d28d9", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 4 }}>
+            Expected Deliverables
+          </div>
+          {mDeliverables.map((d, idx) => (
+            <div key={idx} style={{ fontSize: 12, color: "#374151", lineHeight: 1.6, paddingLeft: 8, display: "flex", gap: 6, alignItems: "flex-start" }}>
+              <span style={{ color: "#7c3aed", flexShrink: 0 }}>•</span>
+              <span>{typeof d === "string" ? d : d.name || d.description || JSON.stringify(d)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {/* Checkpoint Acceptance Criteria */}
+      {mCriteria.length > 0 && (
+        <div style={{ paddingLeft: 36, marginTop: 6 }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, color: "#0369a1", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 4 }}>
+            Acceptance Criteria
+          </div>
+          {mCriteria.map((c, idx) => (
+            <div key={idx} style={{ fontSize: 12, color: "#374151", lineHeight: 1.6, paddingLeft: 8, display: "flex", gap: 6, alignItems: "flex-start" }}>
+              <span style={{ color: "#0369a1", flexShrink: 0 }}>✓</span>
+              <span>{typeof c === "string" ? c : c.description || c.text || JSON.stringify(c)}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -383,6 +435,9 @@ const ContractModal = ({ tx, scope, user, onClose, onScopeUpdated }) => {
         timeline: m.ai_suggested_timeline,
         start_date: m.start_date,
         due_date: m.due_date,
+        expected_project_progress: m.expected_project_progress,
+        deliverables: m.deliverables,
+        acceptance_criteria: m.acceptance_criteria,
       }));
     }
     return null;

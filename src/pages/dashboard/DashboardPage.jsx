@@ -135,8 +135,11 @@ const Dashboard = ({ user, onLogout }) => {
       review_days: parseInt(nf.days) || 3,
       scope_json: finalScope || null,
       ai_estimated_timeline: finalScope?.timeline || null,
-      agreed_duration: nf.agreed_duration || null,
-      agreed_deadline: nf.agreed_deadline ? new Date(nf.agreed_deadline).toISOString() : null,
+      agreed_deadline: nf.agreed_deadline
+        ? new Date(nf.agreed_deadline).toISOString()
+        : finalScope?.agreed_deadline
+          ? new Date(finalScope.agreed_deadline).toISOString()
+          : null,
       revision_policy: finalScope?.revisions || null,
     });
     setSubmitting(false);

@@ -12,6 +12,7 @@ import PortfolioModal from "../../components/dashboard/PortfolioModal";
 import ReviewModal from "../../components/dashboard/ReviewModal";
 import SubmitDeliverableModal from "../../components/dashboard/SubmitDeliverableModal";
 import SubmittedDeliverablesViewer from "../../components/dashboard/SubmittedDeliverablesViewer";
+import { MilestoneDeadlineCountdown, TransactionDeadlinePill } from "../../components/dashboard/DeadlineBadge";
 import { users, transactions, wallet } from "../../utils/api";
 import { sseEmitter } from "../../utils/useSSE";
 
@@ -937,9 +938,17 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
                     >
                       {job.title}
                     </div>
-                    <div style={{ fontSize: 12.5, color: "#75777f" }}>
+                    <div style={{ fontSize: 12.5, color: "#75777f", marginBottom: (job.agreed_deadline || job.ai_estimated_timeline) ? 6 : 0 }}>
                       {job.id} · Client: {job.other} · {job.date}
                     </div>
+                    {(job.agreed_deadline || job.ai_estimated_timeline || (typeof job.scope_json === "object" && job.scope_json?.agreed_deadline)) && (
+                      <TransactionDeadlinePill
+                        deadline={job.agreed_deadline || (typeof job.scope_json === "object" ? job.scope_json?.agreed_deadline : null)}
+                        timeline={job.ai_estimated_timeline || (typeof job.scope_json === "object" ? job.scope_json?.timeline : null)}
+                        status={job.status}
+                        style={{ marginTop: 2 }}
+                      />
+                    )}
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <div
@@ -1015,6 +1024,158 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
                         </div>
                       ))}
                     </div>
+
+                    {/* Milestone Checkpoint Progression Roadmap */}
+                    {Array.isArray(job.milestones) && job.milestones.length > 0 && (
+                      <div
+                        style={{
+                          background: "#f8fafc",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: 12,
+                          padding: "14px 16px",
+                          marginBottom: 16,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            marginBottom: 12,
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span className="msym" style={{ fontSize: 18, color: "#4f46e5" }}>
+                              timeline
+                            </span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: "#1e293b" }}>
+                              Checkpoint Progression Roadmap
+                            </span>
+                          </div>
+                          <span style={{ fontSize: 11.5, color: "#64748b", fontWeight: 600 }}>
+                            {job.milestones.filter((m) => ["approved", "completed"].includes(m.status) || (m.status === "paid" && ((Array.isArray(m.submissions) && m.submissions.length > 0) || m.deliverable_note))).length} of {job.milestones.length} Completed
+                          </span>
+                        </div>
+
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: `repeat(auto-fit, minmax(${Math.min(200, Math.max(160, Math.floor(100 / Math.max(1, job.milestones.length))))}px, 1fr))`,
+                            gap: 10,
+                          }}
+                        >
+                          {job.milestones.map((m, idx) => {
+                            const hasSubmissions = (Array.isArray(m.submissions) && m.submissions.length > 0) || Boolean(m.deliverable_note);
+                            const isDone = (["approved", "completed"].includes(m.status) && hasSubmissions) || (m.status === "approved");
+                            const isPaidPendingSubmission = m.status === "paid" && !hasSubmissions;
+                            const isSubmitted = m.status === "submitted";
+                            const isRevision = m.status === "rejected";
+                            const isCurrent = ["inprogress", "due", "upcoming"].includes(m.status) || isPaidPendingSubmission;
+
+                            let statusBg = "#f1f5f9";
+                            let statusColor = "#64748b";
+                            let statusText = "Upcoming";
+
+                            if (isDone) {
+                              statusBg = "#dcfce7";
+                              statusColor = "#15803d";
+                              statusText = "Completed";
+                            } else if (isSubmitted) {
+                              statusBg = "#e0f2fe";
+                              statusColor = "#0369a1";
+                              statusText = "Under Review";
+                            } else if (isRevision) {
+                              statusBg = "#ffedd5";
+                              statusColor = "#c2410c";
+                              statusText = "Revision Requested";
+                            } else if (isPaidPendingSubmission) {
+                              statusBg = "#ede9fe";
+                              statusColor = "#6d28d9";
+                              statusText = "Paid · Awaiting Submission";
+                            } else if (isCurrent) {
+                              statusBg = "#ede9fe";
+                              statusColor = "#6d28d9";
+                              statusText = "Awaiting Submission";
+                            }
+
+                            return (
+                              <div
+                                key={m.id || idx}
+                                style={{
+                                  background: "#ffffff",
+                                  border: `1.5px solid ${isCurrent ? "#c4b5fd" : isDone ? "#bbf7d0" : "#e2e8f0"}`,
+                                  borderRadius: 10,
+                                  padding: "10px 12px",
+                                  position: "relative",
+                                  boxShadow: isCurrent ? "0 2px 8px rgba(124, 58, 237, 0.08)" : "none",
+                                }}
+                              >
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                                  <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b" }}>
+                                    Phase {idx + 1}
+                                  </span>
+                                  {m.expected_project_progress != null && (
+                                    <span
+                                      style={{
+                                        fontSize: 10.5,
+                                        fontWeight: 700,
+                                        color: isDone ? "#15803d" : "#7c3aed",
+                                        background: isDone ? "#f0fdf4" : "#f5f3ff",
+                                        border: `1px solid ${isDone ? "#bbf7d0" : "#ddd6fe"}`,
+                                        borderRadius: 6,
+                                        padding: "1px 6px",
+                                      }}
+                                    >
+                                      🎯 {m.expected_project_progress}%
+                                    </span>
+                                  )}
+                                </div>
+                                <div style={{ fontSize: 12.5, fontWeight: 700, color: "#0f172a", marginBottom: 6, lineHeight: 1.3 }}>
+                                  {m.title || `Milestone ${idx + 1}`}
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4 }}>
+                                  <span
+                                    style={{
+                                      fontSize: 10.5,
+                                      fontWeight: 600,
+                                      background: statusBg,
+                                      color: statusColor,
+                                      borderRadius: 4,
+                                      padding: "2px 6px",
+                                    }}
+                                  >
+                                    {statusText}
+                                  </span>
+                                  {m.amount > 0 && (
+                                    <span style={{ fontSize: 11, fontWeight: 700, color: "#334155" }}>
+                                      ${Number(m.amount).toLocaleString()}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Milestone Deadline & Live Countdown */}
+                                <MilestoneDeadlineCountdown
+                                  dueDate={
+                                    m.due_date ||
+                                    m.dueDate ||
+                                    (typeof job.scope_json === "object" ? job.scope_json?.milestones?.[idx]?.due_date : null) ||
+                                    (idx === job.milestones.length - 1 ? job.agreed_deadline : null)
+                                  }
+                                  timeline={
+                                    m.ai_suggested_timeline ||
+                                    m.timeline ||
+                                    (typeof job.scope_json === "object" ? job.scope_json?.milestones?.[idx]?.timeline : null)
+                                  }
+                                  status={m.status}
+                                  hasSubmission={hasSubmissions}
+                                  reviewDays={job.review_days || 3}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Actions based on status */}
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

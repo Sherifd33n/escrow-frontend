@@ -8,6 +8,7 @@ import {
   calculateSubmissionReadiness,
   validateSubmissionInputs,
 } from "../../utils/submissionEngine";
+import { MilestoneDeadlineCountdown } from "./DeadlineBadge";
 
 function parseScopeDeliverables(scopeJson, activeMilestone) {
   if (!scopeJson && !activeMilestone) {
@@ -129,7 +130,7 @@ export default function SubmitDeliverableModal({
     return initialMap;
   });
 
-  const [customFieldsMap, setCustomFieldsMap] = useState(() => {
+  const [customFieldsMap] = useState(() => {
     const map = {};
 
     (catConfig.customFields || []).forEach((cf) => {
@@ -159,14 +160,6 @@ export default function SubmitDeliverableModal({
 
   const fileInputRefs = useRef({});
 
-  const updateItemStatus = (scopeId, newStatus) => {
-    setDeliverables((prev) =>
-      prev.map((item) =>
-        item.scope_item_id === scopeId ? { ...item, status: newStatus } : item,
-      ),
-    );
-  };
-
   const updateItemClaim = (scopeId, newClaim) => {
     setDeliverables((prev) =>
       prev.map((item) =>
@@ -180,10 +173,6 @@ export default function SubmitDeliverableModal({
       ...prev,
       [evId]: { ...(prev[evId] || {}), url },
     }));
-  };
-
-  const updateCustomField = (fieldId, val) => {
-    setCustomFieldsMap((prev) => ({ ...prev, [fieldId]: val }));
   };
 
   const readiness = useMemo(
@@ -414,6 +403,63 @@ export default function SubmitDeliverableModal({
             unpack your ZIP archive, inspect all source files inside, and
             evaluate your submission against the scope.
           </div>
+
+          {/* Checkpoint Context Banner — shows agreed milestone checkpoint details */}
+          {activeMilestone && (activeMilestone.expected_project_progress != null || (Array.isArray(activeMilestone.deliverables) && activeMilestone.deliverables.length > 0) || (Array.isArray(activeMilestone.acceptance_criteria) && activeMilestone.acceptance_criteria.length > 0)) && (
+            <div
+              style={{
+                background: "#faf5ff",
+                border: "1px solid #e9d5ff",
+                borderRadius: 12,
+                padding: "14px 16px",
+                marginBottom: 18,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <span className="msym" style={{ fontSize: 18, color: "#7c3aed" }}>flag</span>
+                <span style={{ fontWeight: 700, fontSize: 13, color: "#6d28d9" }}>
+                  Agreed Checkpoint — {activeMilestone.title || "Milestone"}
+                </span>
+                {activeMilestone.expected_project_progress != null && (
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#7c3aed", background: "#ede9fe", borderRadius: 6, padding: "2px 8px", marginLeft: "auto", whiteSpace: "nowrap" }}>
+                    🎯 {activeMilestone.expected_project_progress}% Checkpoint
+                  </span>
+                )}
+              </div>
+              {(activeMilestone.due_date || activeMilestone.dueDate || activeMilestone.ai_suggested_timeline || activeMilestone.timeline) && (
+                <div style={{ marginBottom: 8 }}>
+                  <MilestoneDeadlineCountdown
+                    dueDate={activeMilestone.due_date || activeMilestone.dueDate}
+                    timeline={activeMilestone.ai_suggested_timeline || activeMilestone.timeline}
+                    status={activeMilestone.status}
+                    hasSubmission={Boolean(activeMilestone.deliverable_note || (activeMilestone.submissions && activeMilestone.submissions.length > 0))}
+                  />
+                </div>
+              )}
+              {Array.isArray(activeMilestone.deliverables) && activeMilestone.deliverables.length > 0 && (
+                <div style={{ marginBottom: 6 }}>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, color: "#6d28d9", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 3 }}>Expected Deliverables</div>
+                  {activeMilestone.deliverables.map((d, idx) => (
+                    <div key={idx} style={{ fontSize: 12, color: "#374151", lineHeight: 1.55, paddingLeft: 6, display: "flex", gap: 5, alignItems: "flex-start" }}>
+                      <span style={{ color: "#7c3aed", flexShrink: 0 }}>•</span>
+                      <span>{typeof d === "string" ? d : d.name || d.description || JSON.stringify(d)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {Array.isArray(activeMilestone.acceptance_criteria) && activeMilestone.acceptance_criteria.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, color: "#0369a1", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 3 }}>Acceptance Criteria</div>
+                  {activeMilestone.acceptance_criteria.map((c, idx) => (
+                    <div key={idx} style={{ fontSize: 12, color: "#374151", lineHeight: 1.55, paddingLeft: 6, display: "flex", gap: 5, alignItems: "flex-start" }}>
+                      <span style={{ color: "#0369a1", flexShrink: 0 }}>✓</span>
+                      <span>{typeof c === "string" ? c : c.description || c.text || JSON.stringify(c)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Artifact 1: Complete Project ZIP Package */}
           <div
