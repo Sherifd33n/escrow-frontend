@@ -242,18 +242,22 @@ export default function ClientDashboard({
 
   const payments = txs.map((t) => {
     const totalAmount = parseFloat(t.amount) || 0;
-    // Only count money that actually transferred:
-    //   'paid'     → buyer funded escrow in the normal payment flow
-    //   'approved' → dispute resolved in seller's favour (escrow released to provider)
-    // 'rejected' milestones (buyer wins dispute / refund) are intentionally excluded.
-    // We no longer fall back to `totalAmount` for completed transactions because a
-    // dispute resolved in the buyer's favour also sets status='completed' but the
-    // money was refunded, not paid out to the provider.
-    // 'rejected' milestones (revision requested) still have funds in escrow,
-    // so they must count toward the paid total.
-    const paid = (t.milestones || [])
-      .filter((m) => ["paid", "submitted", "approved", "rejected"].includes(m.status))
-      .reduce((s, m) => s + parseFloat(m.amount || 0), 0);
+    const escrowBalance = parseFloat(t.escrow_balance || 0);
+    const releasedAmount = parseFloat(t.released_amount || 0);
+    const hasMilestones = Array.isArray(t.milestones) && t.milestones.length > 0;
+    const hasExplicitFunded = hasMilestones && t.milestones.some((m) => m.is_funded !== undefined);
+
+    let paid = 0;
+    if (t.status === "completed") {
+      paid = totalAmount;
+    } else if (hasExplicitFunded) {
+      paid = t.milestones
+        .filter((m) => !!m.is_funded)
+        .reduce((s, m) => s + parseFloat(m.amount || 0), 0);
+    } else {
+      paid = Math.min(totalAmount, escrowBalance + releasedAmount);
+    }
+
     const remaining = Math.max(0, totalAmount - paid);
 
     let status = "in_progress";
@@ -309,6 +313,7 @@ export default function ClientDashboard({
         label: m.title,
         amount: parseFloat(m.amount) || 0,
         status: m.status,
+        is_funded: !!m.is_funded,
       })),
     };
   });

@@ -29,16 +29,19 @@ function PaymentCard({ payment, onPay, optimisticStatuses = {} }) {
 
   // Merge optimistic status overrides into payment milestones so newly-paid
   // milestones appear as 'paid' immediately without waiting for server refetch.
-  const milestones = payment.milestones.map(m => ({
-    ...m,
-    status: optimisticStatuses[m.id] || m.status,
-  }));
+  const milestones = payment.milestones.map((m) => {
+    const isFunded = optimisticStatuses[m.id] === "paid" ? true : !!m.is_funded;
+    return {
+      ...m,
+      is_funded: isFunded,
+      status: optimisticStatuses[m.id] || m.status,
+    };
+  });
 
-  // Recalculate paid/remaining based on merged statuses.
-  // Any milestone whose escrow has been funded counts toward "paid", even if the
-  // client later requested a revision ('rejected').  The money stays in escrow.
+  // Recalculate paid/remaining strictly based on is_funded status (funds deposited into escrow).
+  // Approving or submitting a deliverable does NOT count as funded unless the client actually paid into escrow.
   const effectivePaid = milestones
-    .filter(m => ["paid", "submitted", "approved", "rejected"].includes(m.status))
+    .filter((m) => !!m.is_funded)
     .reduce((s, m) => s + parseFloat(m.amount || 0), 0);
   const effectiveRemaining = Math.max(0, payment.totalAmount - effectivePaid);
 
@@ -141,31 +144,40 @@ function PaymentCard({ payment, onPay, optimisticStatuses = {} }) {
           <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:8,animation:"fadeIn .2s ease"}}>
             {milestones.map((m,i) => {
               const mc = MILESTONE_CFG[m.status] || MILESTONE_CFG.upcoming;
-              // Hide Pay Now if the overall transaction is completed (normal completion
-              // or dispute resolution) OR if this specific milestone was already paid/submitted/approved.
-              const isPayable = payment.status !== "completed" &&
-                !["paid", "submitted", "approved", "rejected"].includes(m.status);
+              // A milestone is payable as long as the overall transaction is not completed
+              // and this specific milestone has NOT yet been funded into escrow by the client.
+              const isPayable = payment.status !== "completed" && !m.is_funded;
               return (
                 <div key={i} style={{display:"flex",alignItems:"center",gap:12,
-                  background: mc.bg,borderRadius:10,padding:"12px 14px",
-                  border:`1px solid ${isPayable ? "#fecaca" : "#e9e7eb"}`}}>
+                  background: m.is_funded ? "#f0fdf4" : (isPayable ? "#fffbeb" : mc.bg),
+                  borderRadius:10,padding:"12px 14px",
+                  border:`1px solid ${isPayable ? "#fcd34d" : "#e9e7eb"}`}}>
                   <div style={{width:32,height:32,borderRadius:8,background:"#fff",
                     display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,
                     boxShadow:"0 1px 4px rgba(0,0,0,.08)"}}>
-                    <span className="msym" style={{fontSize:18,color:mc.color}}>{mc.icon}</span>
+                    <span className="msym" style={{fontSize:18,color: m.is_funded ? "#006c47" : (isPayable ? "#d97706" : mc.color)}}>
+                      {m.is_funded ? "check_circle" : (isPayable ? "schedule" : mc.icon)}
+                    </span>
                   </div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:13,fontWeight:600,color:"#001637",
                       overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.label}</div>
-                    <div style={{fontSize:11,color:"#75777f",marginTop:2}}>
-                      {m.date} · <span style={{fontWeight:600,color:mc.color}}>{mc.label}</span>
+                    <div style={{fontSize:11,color:"#75777f",marginTop:2,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                      {m.is_funded ? (
+                        <span style={{fontWeight:600,color:"#006c47"}}>✓ Funded into Escrow</span>
+                      ) : (
+                        <span style={{fontWeight:600,color:"#b45309"}}>⚠️ Unfunded in Escrow</span>
+                      )}
+                      {m.status && !["paid", "pending", "upcoming", "due"].includes(m.status) && (
+                        <span style={{fontWeight:600,color:mc.color}}>· Deliverable: {mc.label}</span>
+                      )}
                     </div>
                   </div>
                   <div style={{textAlign:"right",flexShrink:0}}>
                     <div style={{fontSize:15,fontWeight:800,color:"#001637"}}>${m.amount.toLocaleString()}</div>
                     {isPayable && (
                       <button onClick={() => onPay(payment,m)}
-                        style={{marginTop:4,background:"#dc2626",color:"#fff",border:"none",
+                        style={{marginTop:4,background:"#d97706",color:"#fff",border:"none",
                           borderRadius:6,padding:"4px 12px",fontSize:11,fontWeight:700,
                           cursor:"pointer",fontFamily:"'Inter',sans-serif"}}>
                         Pay Now
