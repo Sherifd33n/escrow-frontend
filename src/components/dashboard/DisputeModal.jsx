@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { T, fs } from "../../tokens";
+import { T } from "../../tokens";
 import { Btn, Spin, EvidenceViewer } from "../../components/ui";
 import { transactions } from "../../utils/api";
 
@@ -24,27 +24,33 @@ const DisputeModal = ({ tx, onClose, onSubmit }) => {
   const fileInputRef = useRef(null);
 
   const [existingDispute, setExistingDispute] = useState(null);
-  const [loadingDispute, setLoadingDispute] = useState(false);
+  const [loadingDispute, setLoadingDispute] = useState(() => tx.status === "disputed");
   const [disputeError, setDisputeError] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
     if (tx.status === "disputed") {
-      setLoadingDispute(true);
       transactions.getDispute(tx.id)
         .then(({ data, error }) => {
-          setLoadingDispute(false);
+          if (cancelled) return;
           if (error) {
             setDisputeError(error);
           } else if (data) {
             setExistingDispute(data);
           }
         })
-        .catch(err => {
-          setLoadingDispute(false);
+        .catch(() => {
+          if (cancelled) return;
           setDisputeError("Failed to load dispute details.");
+        })
+        .finally(() => {
+          if (!cancelled) setLoadingDispute(false);
         });
     }
-  }, [tx]);
+    return () => {
+      cancelled = true;
+    };
+  }, [tx.id, tx.status]);
 
   const compressImage = (file, maxWidth = 1200, quality = 0.75) =>
     new Promise((resolve) => {
@@ -141,7 +147,7 @@ const DisputeModal = ({ tx, onClose, onSubmit }) => {
       }
 
       const targetId = tx.realId || tx.id;
-      const { data, error } = await transactions.fileDispute(targetId, {
+      const { error } = await transactions.fileDispute(targetId, {
         reason,
         evidence: finalEvidence
       });

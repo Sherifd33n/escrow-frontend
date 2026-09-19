@@ -20,19 +20,16 @@ const PhoneVerifyModal = ({ onClose, onVerified }) => {
 
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [countdown, setCountdown] = useState(59);
-  const [canResend, setCanResend] = useState(false);
-  const refs = [useRef(), useRef(), useRef(), useRef(), useRef(), useRef()];
+  const canResend = countdown <= 0;
+  const refs = useRef([]);
 
   useEffect(() => {
-    if (step === "otp") refs[0].current?.focus();
+    if (step === "otp") refs.current[0]?.focus();
   }, [step]);
 
   useEffect(() => {
     if (step !== "otp") return;
-    if (countdown <= 0) {
-      setCanResend(true);
-      return;
-    }
+    if (countdown <= 0) return;
     const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
     return () => clearTimeout(t);
   }, [countdown, step]);
@@ -65,7 +62,6 @@ const PhoneVerifyModal = ({ onClose, onVerified }) => {
 
     setStep("otp");
     setCountdown(59);
-    setCanResend(false);
   };
 
   const handleChange = (i, val) => {
@@ -74,13 +70,13 @@ const PhoneVerifyModal = ({ onClose, onVerified }) => {
     next[i] = v;
     setOtp(next);
     setErr("");
-    if (v && i < 5) refs[i + 1].current?.focus();
+    if (v && i < 5) refs.current[i + 1]?.focus();
   };
 
   const handleKey = (i, e) => {
-    if (e.key === "Backspace" && !otp[i] && i > 0) refs[i - 1].current?.focus();
-    if (e.key === "ArrowLeft" && i > 0) refs[i - 1].current?.focus();
-    if (e.key === "ArrowRight" && i < 5) refs[i + 1].current?.focus();
+    if (e.key === "Backspace" && !otp[i] && i > 0) refs.current[i - 1]?.focus();
+    if (e.key === "ArrowLeft" && i > 0) refs.current[i - 1]?.focus();
+    if (e.key === "ArrowRight" && i < 5) refs.current[i + 1]?.focus();
   };
 
   const handlePaste = (e) => {
@@ -95,7 +91,7 @@ const PhoneVerifyModal = ({ onClose, onVerified }) => {
       next[i] = v;
     });
     setOtp(next);
-    refs[Math.min(paste.length, 5)].current?.focus();
+    refs.current[Math.min(paste.length, 5)]?.focus();
   };
 
   const confirmCode = async () => {
@@ -133,8 +129,7 @@ const PhoneVerifyModal = ({ onClose, onVerified }) => {
     }
 
     setCountdown(59);
-    setCanResend(false);
-    refs[0].current?.focus();
+    refs.current[0]?.focus();
   };
 
   return (
@@ -328,7 +323,7 @@ const PhoneVerifyModal = ({ onClose, onVerified }) => {
                   {otp.map((v, i) => (
                     <input
                       key={i}
-                      ref={refs[i]}
+                      ref={(el) => (refs.current[i] = el)}
                       type="text"
                       inputMode="numeric"
                       maxLength={1}

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { wallet as walletApi } from "../../utils/api";
 
-export default function AccountStatementModal({ onClose, user }) {
+export default function AccountStatementModal({ onClose }) {
   const [rangePreset, setRangePreset] = useState("30");
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
@@ -12,7 +12,7 @@ export default function AccountStatementModal({ onClose, user }) {
     return new Date().toISOString().split("T")[0];
   });
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [statementData, setStatementData] = useState(null);
   const [error, setError] = useState(null);
 
@@ -31,29 +31,34 @@ export default function AccountStatementModal({ onClose, user }) {
       start.setFullYear(2020, 0, 1);
     }
 
+    setLoading(true);
     setStartDate(start.toISOString().split("T")[0]);
     setEndDate(end.toISOString().split("T")[0]);
   };
 
-  const fetchStatement = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await walletApi.getStatement({ startDate, endDate });
-      if (res.data) {
-        setStatementData(res.data);
-      } else {
-        setError("Failed to load statement data.");
-      }
-    } catch (err) {
-      setError(err.message || "Error fetching statement");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchStatement();
+    let cancelled = false;
+    walletApi.getStatement({ startDate, endDate })
+      .then((res) => {
+        if (cancelled) return;
+        if (res.data) {
+          setStatementData(res.data);
+          setError(null);
+        } else {
+          setError("Failed to load statement data.");
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err.message || "Error fetching statement");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [startDate, endDate]);
 
   const [downloadingPdf, setDownloadingPdf] = useState(false);

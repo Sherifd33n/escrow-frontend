@@ -43,20 +43,26 @@ const SettingsTab = ({ user, onUserUpdate, onLogout }) => {
 
   // Reviews state
   const [reviewsData, setReviewsData] = useState(null);
-  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsLoading, setReviewsLoading] = useState(() => Boolean(user?.id));
 
   useEffect(() => {
+    let cancelled = false;
     if (user?.id) {
-      setReviewsLoading(true);
       users.getReviews(user.id)
         .then(({ data, error }) => {
-          setReviewsLoading(false);
+          if (cancelled) return;
           if (!error && data) {
             setReviewsData(data);
           }
         })
-        .catch(() => setReviewsLoading(false));
+        .catch(() => {})
+        .finally(() => {
+          if (!cancelled) setReviewsLoading(false);
+        });
     }
+    return () => {
+      cancelled = true;
+    };
   }, [user?.id]);
 
   // Sync preference states when user prop changes

@@ -202,7 +202,7 @@ export default function SubmittedDeliverablesViewer({
       item.type ||
       "Deliverable File";
 
-    const fileName =
+    let fileName =
       item.file_name ||
       (url.includes("/")
         ? url.split("/").pop().split("?")[0]
@@ -210,8 +210,13 @@ export default function SubmittedDeliverablesViewer({
 
     const isZip =
       url.toLowerCase().includes(".zip") ||
-      (fileName &&
-        fileName.toLowerCase().endsWith(".zip"));
+      (fileName && fileName.toLowerCase().endsWith(".zip")) ||
+      label.toLowerCase().includes("zip") ||
+      label.toLowerCase().includes("archive");
+
+    if (isZip && !fileName.toLowerCase().endsWith(".zip")) {
+      fileName = `${fileName}.zip`;
+    }
 
     if (
       url.includes("/uploads/") ||

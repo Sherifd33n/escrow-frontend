@@ -372,6 +372,11 @@ export const transactions = {
       `/transactions/milestones/${milestoneId}/pay`
     ),
 
+  releaseEscrow: (id) =>
+    post(
+      `/transactions/${id}/release-escrow`
+    ),
+
   fileDispute: (id, data) =>
     post(
       `/transactions/${id}/dispute`,

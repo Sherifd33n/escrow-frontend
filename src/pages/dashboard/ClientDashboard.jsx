@@ -1426,24 +1426,47 @@ export default function ClientDashboard({
                               style={{ fontSize: 13 }}
                               onClick={async (e) => {
                                 e.stopPropagation();
-                                if (
-                                  window.confirm(
-                                    "Approve work and release escrow funds to provider?",
-                                  )
-                                ) {
-                                  const res = await transactions.updateStatus(
-                                    tx.realId,
-                                    "approved",
-                                  );
-                                  if (res.error) alert(res.error);
-                                  else fetchDashboardData();
+                                const submittedM = (
+                                  tx.milestones || []
+                                ).find((m) => m.status === "submitted");
+                                if (submittedM) {
+                                  if (
+                                    window.confirm(
+                                      `Approve milestone "${submittedM.title || "Deliverable"}"?\n\n(Escrow funds remain securely in escrow until all deliverables are completed and you choose to release them.)`,
+                                    )
+                                  ) {
+                                    const res =
+                                      await transactions.updateMilestoneStatus(
+                                        submittedM.id,
+                                        "approved",
+                                      );
+                                    if (res.error) alert(res.error);
+                                    else fetchDashboardData();
+                                  }
+                                } else {
+                                  if (
+                                    window.confirm(
+                                      "Approve submitted work?\n\n(Escrow funds will be ready for your release.)",
+                                    )
+                                  ) {
+                                    const res = await transactions.updateStatus(
+                                      tx.realId,
+                                      "approved",
+                                    );
+                                    if (res.error) alert(res.error);
+                                    else fetchDashboardData();
+                                  }
                                 }
                               }}
                             >
                               <span className="msym" style={{ fontSize: 16 }}>
                                 check_circle
                               </span>{" "}
-                              Approve &amp; Release Funds
+                              {tx.milestones?.some(
+                                (m) => m.status === "submitted",
+                              )
+                                ? "Approve Milestone"
+                                : "Approve Work"}
                             </Btn>
 
                             <Btn
@@ -1591,6 +1614,85 @@ export default function ClientDashboard({
                               </div>
                             </div>
                           )}
+                        </div>
+                      )}
+
+                      {/* Approved & Release Escrow Action Box */}
+                      {tx.status === "approved" && (
+                        <div
+                          style={{
+                            background: "#f0fdf4",
+                            border: "1px solid #86efac",
+                            borderRadius: 10,
+                            padding: "14px 16px",
+                            fontSize: 13,
+                            color: "#166534",
+                            width: "100%",
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div
+                            style={{
+                              fontWeight: 700,
+                              fontSize: 14,
+                              color: "#15803d",
+                              marginBottom: 6,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                            }}
+                          >
+                            <span className="msym" style={{ fontSize: 18 }}>
+                              verified
+                            </span>
+                            All Deliverables Approved
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 12.5,
+                              color: "#374151",
+                              marginBottom: 12,
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            All project deliverables have been reviewed and approved. If you are satisfied with the completed project, you can now release the escrow funds (${Number(tx.escrow_balance || tx.amount || 0).toLocaleString()}) to the service provider.
+                          </div>
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: 8,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <Btn
+                              variant="green"
+                              style={{ fontSize: 13, fontWeight: 700 }}
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (
+                                  window.confirm(
+                                    `Release $${Number(tx.escrow_balance || tx.amount || 0).toLocaleString()} from escrow to ${tx.seller_name || "the provider"}? This will complete the transaction.`,
+                                  )
+                                ) {
+                                  const res = await transactions.releaseEscrow(
+                                    tx.realId,
+                                  );
+                                  if (res.error) alert(res.error);
+                                  else {
+                                    alert(
+                                      "Escrow funds released successfully! Transaction marked as completed.",
+                                    );
+                                    fetchDashboardData();
+                                  }
+                                }
+                              }}
+                            >
+                              <span className="msym" style={{ fontSize: 16 }}>
+                                payments
+                              </span>{" "}
+                              Release Escrow Funds to Provider
+                            </Btn>
+                          </div>
                         </div>
                       )}
 

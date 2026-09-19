@@ -1,5 +1,3 @@
-import React from "react";
-
 export default function TransactionReceiptModal({ tx, onClose, user }) {
   if (!tx) return null;
 
@@ -25,7 +23,7 @@ export default function TransactionReceiptModal({ tx, onClose, user }) {
   if (meta && typeof meta === "string") {
     try {
       meta = JSON.parse(meta);
-    } catch (e) {
+    } catch {
       meta = null;
     }
   }

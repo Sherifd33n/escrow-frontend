@@ -1261,78 +1261,6 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
                           {/* Submitted Deliverables Viewer */}
                           <SubmittedDeliverablesViewer tx={job} />
 
-                          {/* Submission History */}
-                          {(job.milestones || []).some(
-                            (m) => (m.submissions || []).length > 0,
-                          ) && (
-                            <div
-                              style={{
-                                background: "#f8fafc",
-                                border: "1px solid #e2e8f0",
-                                borderRadius: 10,
-                                padding: "10px 14px",
-                                fontSize: 12.5,
-                                color: "#334155",
-                              }}
-                            >
-                              <div
-                                style={{
-                                  fontWeight: 700,
-                                  fontSize: 11,
-                                  textTransform: "uppercase",
-                                  letterSpacing: ".04em",
-                                  color: "#64748b",
-                                  marginBottom: 6,
-                                }}
-                              >
-                                Submission History
-                              </div>
-                              {(job.milestones || [])
-                                .flatMap((m) => m.submissions || [])
-                                .map((sub, sIdx) => (
-                                  <div
-                                    key={sIdx}
-                                    style={{
-                                      padding: "4px 0",
-                                      borderBottom:
-                                        sIdx <
-                                        (job.milestones?.flatMap(
-                                          (m) => m.submissions || [],
-                                        ).length || 0) -
-                                          1
-                                          ? "1px dashed #cbd5e1"
-                                          : "none",
-                                    }}
-                                  >
-                                    <span
-                                      style={{
-                                        fontWeight: 700,
-                                        color: "#0f172a",
-                                      }}
-                                    >
-                                      Version {sub.version || sIdx + 1}:
-                                    </span>{" "}
-                                    {sub.deliverable_note}
-                                    {sub.created_at && (
-                                      <span
-                                        style={{
-                                          fontSize: 11,
-                                          color: "#64748b",
-                                          marginLeft: 8,
-                                        }}
-                                      >
-                                        (
-                                        {new Date(
-                                          sub.created_at,
-                                        ).toLocaleDateString()}
-                                        )
-                                      </span>
-                                    )}
-                                  </div>
-                                ))}
-                            </div>
-                          )}
-
                           {(() => {
                             const catLabel =
                               job.cat || job.category || job.type || "Project";
@@ -1434,8 +1362,7 @@ export default function VendorDashboard({ user, onLogout, onUserUpdate }) {
                             width: "100%",
                           }}
                         >
-                          ✓ Approved! Funds will be released to your wallet
-                          within 24 hours.
+                          ✓ Deliverables Approved! Awaiting client release of escrow funds to your wallet.
                         </div>
                       )}
                       {job.status === "inspection" && (

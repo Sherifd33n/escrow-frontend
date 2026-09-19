@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { T } from "../../tokens";
 import { Btn, Spin } from "../ui";
 import { transactions } from "../../utils/api";
@@ -19,23 +19,25 @@ const ReviewModal = ({ tx, onClose, onSubmit }) => {
   const [err, setErr] = useState("");
 
   const [reviewsList, setReviewsList] = useState([]);
-  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [loadingReviews, setLoadingReviews] = useState(true);
 
-  const fetchReviews = () => {
-    setLoadingReviews(true);
-    transactions.getReviews(tx.realId || tx.id)
+  const txId = tx?.realId || tx?.id;
+
+  const loadReviews = useCallback(() => {
+    if (!txId) return;
+    transactions.getReviews(txId)
       .then(({ data, error }) => {
-        setLoadingReviews(false);
         if (!error && data) {
           setReviewsList(data);
         }
       })
-      .catch(() => setLoadingReviews(false));
-  };
+      .catch(() => {})
+      .finally(() => setLoadingReviews(false));
+  }, [txId]);
 
   useEffect(() => {
-    fetchReviews();
-  }, [tx]);
+    loadReviews();
+  }, [loadReviews]);
 
   const handleSubmit = async () => {
     if (!rating) {
@@ -45,7 +47,7 @@ const ReviewModal = ({ tx, onClose, onSubmit }) => {
     setLoadingSubmit(true);
     setErr("");
     
-    const { data, error } = await transactions.submitReview(tx.realId || tx.id, {
+    const { error } = await transactions.submitReview(txId, {
       rating,
       comment: comment.trim()
     });
@@ -56,7 +58,7 @@ const ReviewModal = ({ tx, onClose, onSubmit }) => {
     } else {
       alert("Review submitted successfully!");
       if (onSubmit) onSubmit();
-      fetchReviews();
+      loadReviews();
       setComment("");
     }
   };
