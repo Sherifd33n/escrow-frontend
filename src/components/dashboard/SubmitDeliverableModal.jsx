@@ -385,7 +385,7 @@ export default function SubmitDeliverableModal({
             </div>
           )}
 
-          {/* Banner: 2-Artifact Standard Guide */}
+          {/* Banner: Deliverable Submission Guide */}
           <div
             style={{
               background: "#f0f9ff",
@@ -399,9 +399,9 @@ export default function SubmitDeliverableModal({
             }}
           >
             <strong>Standard Provider Submission:</strong> Submit your ZIP
-            package and project text summary below. The AI Audit System will
-            unpack your ZIP archive, inspect all source files inside, and
-            evaluate your submission against the scope.
+            package, project links (Figma, GitHub repo, live preview), and project
+            text summary below. The AI Audit System will inspect your files and links,
+            and evaluate your submission against the agreed scope.
           </div>
 
           {/* Checkpoint Context Banner — shows agreed milestone checkpoint details */}
@@ -485,7 +485,7 @@ export default function SubmitDeliverableModal({
               <span className="msym" style={{ fontSize: 20, color: "#2563eb" }}>
                 folder_zip
               </span>
-              1. Complete Project Implementation Archive (ZIP File)
+              1. Project Implementation Archive (ZIP File)
             </div>
 
             <div
@@ -669,7 +669,74 @@ export default function SubmitDeliverableModal({
             </div>
           </div>
 
-          {/* Artifact 2: Project Summary & Implementation Notes */}
+          {/* Artifact 2: Project Link (Figma, GitHub, Live Demo, etc.) */}
+          <div
+            style={{
+              background: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              borderRadius: 14,
+              padding: "16px",
+              marginBottom: 16,
+            }}
+          >
+            <div
+              style={{
+                fontWeight: 700,
+                fontSize: 13.5,
+                color: "#0f172a",
+                marginBottom: 4,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <span className="msym" style={{ fontSize: 20, color: "#8b5cf6" }}>
+                link
+              </span>
+              2. Project Links &amp; Resources (Figma, GitHub, Live Demo, etc.)
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "#64748b",
+                  background: "#f1f5f9",
+                  borderRadius: 6,
+                  padding: "2px 6px",
+                  marginLeft: 4,
+                }}
+              >
+                Optional
+              </span>
+            </div>
+
+            <div
+              style={{
+                fontSize: 12,
+                color: "#64748b",
+                marginBottom: 10,
+              }}
+            >
+              Submit relevant links for this project, such as a Figma design file, GitHub/GitLab repository, live preview, or staging URL.
+            </div>
+
+            <input
+              type="url"
+              placeholder="Paste Figma link, GitHub repo, live demo URL, or any relevant link (e.g., https://...)"
+              value={evidenceMap["project_link"]?.url || ""}
+              onChange={(e) => updateEvidenceUrl("project_link", e.target.value)}
+              style={{
+                width: "100%",
+                borderRadius: 8,
+                border: "1px solid #cbd5e1",
+                padding: "9px 12px",
+                fontSize: 13,
+                boxSizing: "border-box",
+                background: "#ffffff",
+              }}
+            />
+          </div>
+
+          {/* Artifact 3: Project Summary & Implementation Notes */}
           <div
             style={{
               background: "#f8fafc",
@@ -693,7 +760,7 @@ export default function SubmitDeliverableModal({
               <span className="msym" style={{ fontSize: 20, color: "#16a34a" }}>
                 description
               </span>
-              2. Project Summary & Implementation Notes (Text Explanation)
+              3. Project Summary & Implementation Notes (Text Explanation)
             </div>
 
             <div
@@ -811,6 +878,20 @@ export default function SubmitDeliverableModal({
                 {evidenceMap["zip_package"]?.url ? "✓" : "⚠"} ZIP Package
                 Attached
               </span>
+
+              {evidenceMap["project_link"]?.url && (
+                <span
+                  style={{
+                    padding: "3px 8px",
+                    borderRadius: 12,
+                    fontWeight: 600,
+                    background: "#d1fae5",
+                    color: "#047857",
+                  }}
+                >
+                  ✓ Project Link Attached
+                </span>
+              )}
 
               <span
                 style={{

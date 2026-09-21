@@ -218,11 +218,15 @@ export default function SubmittedDeliverablesViewer({
       fileName = `${fileName}.zip`;
     }
 
-    if (
+    const isFile =
       url.includes("/uploads/") ||
       isZip ||
-      fileName.includes(".")
-    ) {
+      (/\.(zip|tar|gz|rar|7z|pdf|docx?|xlsx?|png|jpe?g|gif|mp4|webm)$/i.test(fileName) &&
+        !url.toLowerCase().includes("figma.com") &&
+        !url.toLowerCase().includes("github.com") &&
+        !url.toLowerCase().includes("gitlab.com"));
+
+    if (item.type !== "link" && isFile) {
       if (!fileItems.some((f) => resolveEvidenceUrl(f.url) === resolved)) {
         fileItems.push({
           label,
@@ -643,46 +647,79 @@ export default function SubmittedDeliverablesViewer({
         </div>
       )}
 
-      {/* External Repository or Staging Links */}
+      {/* External Repository, Figma, or Staging Links */}
       {linkItems.length > 0 && (
         <div
           style={{
-            marginTop: 8,
+            marginTop: 10,
             display: "flex",
             gap: 8,
             flexWrap: "wrap",
           }}
         >
-          {linkItems.map((link, idx) => (
-            <a
-              key={idx}
-              href={resolveEvidenceUrl(link.url)}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 12px",
-                background: "#f1f5f9",
-                border: "1px solid #cbd5e1",
-                borderRadius: 6,
-                fontSize: 12,
-                color: "#334155",
-                fontWeight: 600,
-                textDecoration: "none",
-              }}
-            >
-              <span
-                className="msym"
-                style={{ fontSize: 15 }}
+          {linkItems.map((link, idx) => {
+            const lowerUrl = (link.url || "").toLowerCase();
+            const isFigma = lowerUrl.includes("figma.com");
+            const isGithub =
+              lowerUrl.includes("github.com") || lowerUrl.includes("gitlab.com");
+            return (
+              <a
+                key={idx}
+                href={resolveEvidenceUrl(link.url)}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 14px",
+                  background: isFigma
+                    ? "#fdf2f8"
+                    : isGithub
+                    ? "#f8fafc"
+                    : "#f0f9ff",
+                  border: isFigma
+                    ? "1px solid #fbcfe8"
+                    : isGithub
+                    ? "1px solid #cbd5e1"
+                    : "1px solid #bae6fd",
+                  borderRadius: 8,
+                  fontSize: 12,
+                  color: isFigma
+                    ? "#be185d"
+                    : isGithub
+                    ? "#0f172a"
+                    : "#0369a1",
+                  fontWeight: 600,
+                  textDecoration: "none",
+                }}
               >
-                open_in_new
-              </span>
+                <span
+                  className="msym"
+                  style={{
+                    fontSize: 15,
+                    color: isFigma
+                      ? "#db2777"
+                      : isGithub
+                      ? "#334155"
+                      : "#0284c7",
+                  }}
+                >
+                  {isFigma ? "palette" : isGithub ? "code" : "open_in_new"}
+                </span>
 
-              {link.label || "View External Link"}
-            </a>
-          ))}
+                {link.label &&
+                !link.label.startsWith("2. Project Link") &&
+                !link.label.startsWith("3. Project Link")
+                  ? link.label
+                  : isFigma
+                  ? "Open Figma Link"
+                  : isGithub
+                  ? "Open Repository Link"
+                  : "Open Project Link"}
+              </a>
+            );
+          })}
         </div>
       )}
 
