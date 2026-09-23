@@ -477,8 +477,10 @@ const ContractModal = ({ tx, scope, user, onClose, onScopeUpdated }) => {
     "2 revisions included per milestone";
 
   const hasScope = !!confirmedScope;
-  const canRequestChanges =
-    !tx?.status || ["pending", "funded"].includes(tx?.status);
+  const currentStatus = (tx?.status || "pending").toLowerCase();
+  const isPreWork = ["pending", "funded"].includes(currentStatus);
+  const canRequestChanges = isPreWork;
+  const canEditScope = isPreWork;
 
   // ── Render ──────────────────────────────────────────────────────
   return (
@@ -926,8 +928,8 @@ const ContractModal = ({ tx, scope, user, onClose, onScopeUpdated }) => {
             Close
           </Btn>
 
-          {/* Client Role Footer (2 Buttons: Close & Edit / Update Scope) */}
-          {isClient && (
+          {/* Client Role Footer (Close & Edit / Update Scope only before work starts) */}
+          {isClient && canEditScope && (
             <Btn
               variant="teal"
               style={{ flex: 1.2 }}
@@ -965,6 +967,7 @@ const ContractModal = ({ tx, scope, user, onClose, onScopeUpdated }) => {
           catLabel={category}
           currentAmount={totalAmt}
           transactionId={tx?.realId || tx?.id}
+          initialScope={confirmedScope}
           onClose={() => setShowScopeModal(false)}
           onApply={handleApplyNewScope}
         />
